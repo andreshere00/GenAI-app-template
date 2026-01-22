@@ -19,14 +19,14 @@ def test_base_storage_adapter_is_abstract():
     """
     # Act & Assert
     with pytest.raises(TypeError):
-        # This should fail because it doesn't implement load_template 
+        # This should fail because it doesn't implement load_template
         # required by the protocol/ABC structure
         BaseStorageAdapter()
 
 
 def test_concrete_adapter_inherits_from_base():
     """
-    Test that a concrete implementation correctly identifies as an instance 
+    Test that a concrete implementation correctly identifies as an instance
     of BaseStorageAdapter.
     """
     # Arrange

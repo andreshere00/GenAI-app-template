@@ -11,8 +11,8 @@ class BaseStorageAdapter(PromptStorageAdapter, abc.ABC):
     def load_template(self, path: str) -> PromptTemplate:
         """
         Abstract method to load a template.
-        
-        Subclasses must implement this method to satisfy the 
+
+        Subclasses must implement this method to satisfy the
         PromptStorageAdapter protocol.
         """
         ...

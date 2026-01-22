@@ -3,6 +3,7 @@ import pytest
 from src.infrastructure.prompt.storage.adapters.local import LocalStorageAdapter
 from src.domain.prompt.types import PromptTemplate
 
+
 @pytest.fixture
 def temp_prompt_file(tmp_path: Path) -> Path:
     """Fixture to create a temporary prompt file for testing."""
@@ -11,6 +12,7 @@ def temp_prompt_file(tmp_path: Path) -> Path:
     file_path = prompt_dir / "test_prompt.txt"
     file_path.write_text("Hello, $name!", encoding="utf-8")
     return file_path
+
 
 def test_load_template_existing_file_returns_prompt_template(temp_prompt_file: Path):
     """
@@ -29,6 +31,7 @@ def test_load_template_existing_file_returns_prompt_template(temp_prompt_file: P
     assert result.content == "Hello, $name!"
     assert result.path == str(temp_prompt_file)
 
+
 def test_load_template_missing_file_raises_file_not_found_error(tmp_path: Path):
     """
     Test that load_template raises FileNotFoundError when the file does not exist.
@@ -40,8 +43,9 @@ def test_load_template_missing_file_raises_file_not_found_error(tmp_path: Path):
     # Act & Assert
     with pytest.raises(FileNotFoundError) as exc_info:
         adapter.load_template(non_existent_path)
-    
+
     assert "Prompt file not found at" in str(exc_info.value)
+
 
 def test_load_template_with_nested_directories(tmp_path: Path):
     """
@@ -52,7 +56,7 @@ def test_load_template_with_nested_directories(tmp_path: Path):
     nested_dir.mkdir(parents=True)
     file_path = nested_dir / "template.txt"
     file_path.write_text("Nested content", encoding="utf-8")
-    
+
     adapter = LocalStorageAdapter(base_path=tmp_path)
     relative_path = "category/subcategory/template.txt"
 
@@ -62,6 +66,7 @@ def test_load_template_with_nested_directories(tmp_path: Path):
     # Assert
     assert result.content == "Nested content"
     assert Path(result.path) == file_path
+
 
 def test_init_accepts_both_str_and_path(tmp_path: Path):
     """

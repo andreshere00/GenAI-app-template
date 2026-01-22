@@ -33,7 +33,7 @@ def test_build_chat_template_valid_input_returns_human_message_by_default(
 
     # Mock the raw template return from storage
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="Hello, $name!", path=template_path
+        content="Hello, {{name}}!", path=template_path
     )
 
     # Act
@@ -57,15 +57,13 @@ def test_build_chat_template_system_role_returns_system_message(
     # Arrange
     template_path = "prompts/system_instruction.txt"
     variables = {"behavior": "helpful"}
-    
+
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="You are a $behavior assistant.", path=template_path
+        content="You are a {{behavior}} assistant.", path=template_path
     )
 
     # Act
-    result = repository.build_chat_template(
-        template_path, variables, role="system"
-    )
+    result = repository.build_chat_template(template_path, variables, role="system")
 
     # Assert
     messages = result.format_messages()
@@ -83,15 +81,13 @@ def test_build_chat_template_ai_role_returns_ai_message(
     # Arrange
     template_path = "prompts/example_response.txt"
     variables = {}  # No variables to substitute
-    
+
     mock_storage_adapter.load_template.return_value = PromptTemplate(
         content="This is a pre-canned response.", path=template_path
     )
 
     # Act
-    result = repository.build_chat_template(
-        template_path, variables, role="ai"
-    )
+    result = repository.build_chat_template(template_path, variables, role="ai")
 
     # Assert
     messages = result.format_messages()
@@ -104,15 +100,14 @@ def test_build_chat_template_missing_variable_does_not_crash(
     repository: LangchainPromptRepository, mock_storage_adapter: Mock
 ) -> None:
     """
-    Test that safe_substitute (inherited from Base) prevents crashing on missing variables.
+    Test that safe_substitute prevents crashing and handles LangChain escaping.
     """
     # Arrange
     template_path = "prompts/complex.txt"
-    # 'missing_var' is not provided in variables dict
     variables = {"present_var": "Found"}
-    
+
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="Value: $present_var, Missing: $missing_var", path=template_path
+        content="Value: {{present_var}}, Missing: {{missing_var}}", path=template_path
     )
 
     # Act
@@ -120,6 +115,6 @@ def test_build_chat_template_missing_variable_does_not_crash(
 
     # Assert
     messages = result.format_messages()
-    # Should keep the original placeholder $missing_var instead of raising KeyError
     assert "Value: Found" in messages[0].content
-    assert "Missing: $missing_var" in messages[0].content
+    # LangChain escapes {{ to { , so we check for the escaped version
+    assert "Missing: {missing_var}" in messages[0].content
