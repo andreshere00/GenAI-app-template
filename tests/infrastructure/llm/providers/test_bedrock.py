@@ -22,8 +22,9 @@ def mock_chat_bedrock():
 
 
 class TestBedrockModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_bedrock):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_bedrock
+    ):
         """Test instantiation using only the configuration object."""
         config = config_factory(
             model="anthropic.claude-v2",
@@ -53,7 +54,9 @@ class TestBedrockModel:
         assert call_kwargs["model_id"] == "anthropic.claude-3-sonnet"
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_bedrock):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_bedrock
+    ):
         """Test that explicit kwargs override configuration values."""
         config = config_factory(model="anthropic.claude-v2", temperature=0.1)
 

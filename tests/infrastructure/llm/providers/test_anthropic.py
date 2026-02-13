@@ -33,10 +33,13 @@ def mock_param_map():
 
 
 class TestAnthropicModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_anthropic):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_anthropic
+    ):
         """Test instantiation using only the configuration object."""
-        config = config_factory(api_key="sk-ant-config", model="claude-3-opus", temperature=0.7)
+        config = config_factory(
+            api_key="sk-ant-config", model="claude-3-opus", temperature=0.7
+        )
 
         AnthropicModel(config=config)
 
@@ -62,9 +65,13 @@ class TestAnthropicModel:
         )
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_anthropic):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_anthropic
+    ):
         """Test that explicit kwargs override configuration values."""
-        config = config_factory(api_key="sk-ant-config", model="claude-2", temperature=0.1)
+        config = config_factory(
+            api_key="sk-ant-config", model="claude-2", temperature=0.1
+        )
 
         AnthropicModel(config=config, model="claude-3-haiku", temperature=0.9)
 

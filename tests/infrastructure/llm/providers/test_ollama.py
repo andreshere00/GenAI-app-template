@@ -22,8 +22,9 @@ def mock_chat_ollama():
 
 
 class TestOllamaModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_ollama):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_ollama
+    ):
         """Test instantiation using only the configuration object."""
         # Use the shared factory fixture
         config = config_factory(
@@ -46,7 +47,9 @@ class TestOllamaModel:
 
     def test_init_valid_kwargs_sets_client_params(self, mock_chat_ollama):
         """Test instantiation using only explicit keyword arguments."""
-        OllamaModel(model="mistral", base_url="http://ollama-server:11434", temperature=0.5)
+        OllamaModel(
+            model="mistral", base_url="http://ollama-server:11434", temperature=0.5
+        )
 
         mock_chat_ollama.assert_called_once()
         call_kwargs = mock_chat_ollama.call_args.kwargs
@@ -55,12 +58,18 @@ class TestOllamaModel:
         assert call_kwargs["base_url"] == "http://ollama-server:11434"
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_ollama):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_ollama
+    ):
         """Test that explicit kwargs override configuration values."""
-        config = config_factory(model="llama2", base_url="http://localhost:11434", temperature=0.1)
+        config = config_factory(
+            model="llama2", base_url="http://localhost:11434", temperature=0.1
+        )
 
         # Override model and base_url
-        OllamaModel(config=config, model="gemma:7b", base_url="http://remote-ollama:8080")
+        OllamaModel(
+            config=config, model="gemma:7b", base_url="http://remote-ollama:8080"
+        )
 
         call_kwargs = mock_chat_ollama.call_args.kwargs
 

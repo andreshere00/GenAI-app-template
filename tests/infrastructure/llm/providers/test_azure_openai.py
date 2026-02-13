@@ -30,7 +30,9 @@ def mock_param_map():
         "model": "azure_deployment",
         "api_key": "api_key",
     }
-    with patch.dict("src.domain.llm.constants.AZURE_OPENAI_PARAM_MAP", test_map, clear=True):
+    with patch.dict(
+        "src.domain.llm.constants.AZURE_OPENAI_PARAM_MAP", test_map, clear=True
+    ):
         yield
 
 
@@ -38,8 +40,9 @@ def mock_param_map():
 
 
 class TestAzureOpenAIModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_azure):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_azure
+    ):
         """Test instantiation using only the configuration object."""
         config = config_factory(
             api_key="sk-azure-key",
@@ -78,7 +81,9 @@ class TestAzureOpenAIModel:
         assert call_kwargs["azure_deployment"] == "kwarg-deployment"
         assert call_kwargs["api_version"] == "2023-12-01"
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_azure):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_azure
+    ):
         """Test that explicit kwargs override configuration values."""
         config = config_factory(
             api_key="sk-config",

@@ -37,7 +37,6 @@ class MockModel:
 
 
 class TestLlmFactory:
-
     def test_register_decorator(self):
         """Test that the register decorator correctly adds a class to the registry."""
         provider_name = "test_provider"
@@ -86,7 +85,9 @@ class TestLlmFactory:
         provider_name = "kwargs_provider"
         LlmFactory.register(provider_name)(MockModel)
 
-        instance = LlmFactory.create(provider_name, arg1="value1", arg2=123, nested={"a": 1})
+        instance = LlmFactory.create(
+            provider_name, arg1="value1", arg2=123, nested={"a": 1}
+        )
 
         assert instance.kwargs["arg1"] == "value1"
         assert instance.kwargs["arg2"] == 123

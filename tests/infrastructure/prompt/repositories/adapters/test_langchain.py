@@ -5,7 +5,9 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.domain.prompt.types import PromptTemplate
-from src.infrastructure.prompt.repositories.adapters.langchain import LangchainPromptRepository
+from src.infrastructure.prompt.repositories.adapters.langchain import (
+    LangchainPromptRepository,
+)
 
 
 @pytest.fixture

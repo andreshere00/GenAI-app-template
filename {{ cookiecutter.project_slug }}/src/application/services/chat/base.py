@@ -1,3 +1,4 @@
+{%- if "chat" in cookiecutter.services -%}
 from typing import Any, AsyncGenerator, List, Optional, Union
 from ....domain.chat.types import ChatMessage, ChatMode
 from ....domain.chat.protocols import ChatConfig
@@ -74,3 +75,4 @@ class BaseChatService:
     ) -> AsyncGenerator[ChatMessage, None]:
         """Internal method for streaming response."""
         raise NotImplementedError
+{% endif %}

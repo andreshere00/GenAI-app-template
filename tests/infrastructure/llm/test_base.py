@@ -38,7 +38,11 @@ class ConcreteTestLLM(BaseLlm):
     and 'mapped_model' instead of 'model'.
     """
 
-    _PARAM_MAP = {"api_key": "test_api_key", "model": "mapped_model", "timeout": "client_timeout"}
+    _PARAM_MAP = {
+        "api_key": "test_api_key",
+        "model": "mapped_model",
+        "timeout": "client_timeout",
+    }
 
     def __init__(self, config: Optional[ModelConfig] = None, **kwargs):
         # We expose the internal params processing to verify the logic
@@ -50,7 +54,6 @@ class ConcreteTestLLM(BaseLlm):
 
 
 class TestBaseLlm:
-
     def test_resolve_parameters_config_only(self):
         """Test that parameters are correctly extracted from the config object."""
         config = MockConfig(api_key="secret", model="gpt-test", temperature=0.7)

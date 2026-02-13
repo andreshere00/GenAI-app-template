@@ -41,7 +41,9 @@ def test_resolve_config_with_overrides_precedence_returns_merged_values(
 ) -> None:
     """Tests if explicit kwargs take precedence over default values."""
     llm, repo = mock_dependencies
-    service = BaseChatService(llm=llm, repository=repo, mode=ChatMode.STREAM, max_history=20)
+    service = BaseChatService(
+        llm=llm, repository=repo, mode=ChatMode.STREAM, max_history=20
+    )
 
     assert service.params["mode"] == ChatMode.STREAM
     assert service.params["max_history"] == 20

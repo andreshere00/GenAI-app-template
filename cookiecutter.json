@@ -1,0 +1,10 @@
+{
+    "project_name": "GenAI application template",
+    "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '-') }}",
+    "project_description": "",
+    "project_version": "0.1.0",
+    "author_name": "andreshere00",
+    "author_email": "andresherencia2000@gmail.com",
+    "llm_providers": "Select among the available LLM Providers:\n    1. Anthropic\n    2. Azure OpenAI\n    3. Bedrock\n    4. Gemini\n    5. Grok\n    6. Ollama\n    7. OpenAI\n e.g., '1,2,5''",
+    "services": ["none", "chat"]
+}

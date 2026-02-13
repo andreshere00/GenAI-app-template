@@ -37,11 +37,14 @@ def mock_param_map():
 
 
 class TestGeminiModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_google):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_google
+    ):
         """Test instantiation using only the configuration object."""
         # Use the shared factory fixture
-        config = config_factory(api_key="sk-gemini-config", model="gemini-1.5-pro", temperature=0.7)
+        config = config_factory(
+            api_key="sk-gemini-config", model="gemini-1.5-pro", temperature=0.7
+        )
 
         GeminiModel(config=config)
 
@@ -54,7 +57,9 @@ class TestGeminiModel:
 
     def test_init_valid_kwargs_sets_client_params(self, mock_chat_google):
         """Test instantiation using only explicit keyword arguments."""
-        GeminiModel(api_key="sk-gemini-kwarg", model="gemini-pro-vision", temperature=0.5)
+        GeminiModel(
+            api_key="sk-gemini-kwarg", model="gemini-pro-vision", temperature=0.5
+        )
 
         mock_chat_google.assert_called_once()
         call_kwargs = mock_chat_google.call_args.kwargs
@@ -63,9 +68,13 @@ class TestGeminiModel:
         assert call_kwargs["model"] == "gemini-pro-vision"
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_google):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_google
+    ):
         """Test that explicit kwargs override configuration values."""
-        config = config_factory(api_key="sk-gemini-config", model="gemini-1.0-pro", temperature=0.1)
+        config = config_factory(
+            api_key="sk-gemini-config", model="gemini-1.0-pro", temperature=0.1
+        )
 
         # Override model and temperature, keep api_key from config
         GeminiModel(config=config, model="gemini-1.5-flash", temperature=0.9)

@@ -1,3 +1,4 @@
+{%- if "chat" in cookiecutter.services -%}
 from typing import Any, AsyncGenerator, List
 from .base import BaseChatService
 from ....domain.chat.types import ChatMessage
@@ -26,3 +27,4 @@ class LangChainChatService(BaseChatService):
 
         async for chunk in self.llm.client.astream(prompt_entity.content):
             yield ChatMessage(role="assistant", content=chunk.content)
+{% endif %}

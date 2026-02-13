@@ -37,11 +37,12 @@ def mock_param_map():
 
 
 class TestGrokModel:
-
     def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_xai):
         """Test instantiation using only the configuration object."""
         # Use the shared factory fixture
-        config = config_factory(api_key="sk-xai-config", model="grok-beta", temperature=0.7)
+        config = config_factory(
+            api_key="sk-xai-config", model="grok-beta", temperature=0.7
+        )
 
         GrokModel(config=config)
 
@@ -63,9 +64,13 @@ class TestGrokModel:
         assert call_kwargs["model"] == "grok-2"
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_xai):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_xai
+    ):
         """Test that explicit kwargs override configuration values."""
-        config = config_factory(api_key="sk-xai-config", model="grok-1", temperature=0.1)
+        config = config_factory(
+            api_key="sk-xai-config", model="grok-1", temperature=0.1
+        )
 
         # Override model and temperature, keep api_key from config
         GrokModel(config=config, model="grok-vision-beta", temperature=0.9)

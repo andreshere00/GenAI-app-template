@@ -23,8 +23,9 @@ def mock_chat_openai():
 
 
 class TestOpenAIModel:
-
-    def test_init_valid_config_sets_client_params(self, config_factory, mock_chat_openai):
+    def test_init_valid_config_sets_client_params(
+        self, config_factory, mock_chat_openai
+    ):
         """Test instantiation using only the configuration object."""
         # Use the shared factory fixture
         config = config_factory(api_key="sk-config-key", model="gpt-4", temperature=0.7)
@@ -54,7 +55,9 @@ class TestOpenAIModel:
         )
         assert call_kwargs["temperature"] == 0.5
 
-    def test_init_config_and_kwargs_prioritizes_kwargs(self, config_factory, mock_chat_openai):
+    def test_init_config_and_kwargs_prioritizes_kwargs(
+        self, config_factory, mock_chat_openai
+    ):
         """Test that explicit kwargs override configuration values."""
         config = config_factory(api_key="sk-config", model="gpt-4", temperature=0.1)
 
