@@ -61,27 +61,27 @@ And that's it! If no validation errors raise, your application template is ready
 
 ## Next Steps
 
-- [] Add support to use **MCP** (Model Context Protocol) Tools, Client and Server.
-- [] Add support to use **Vector Databases** from different providers:
-    - [] (Amazon) OpenSearch
-    - [] Google Cloud Platform Vertex AI
-    - [] Microsoft Azure AI Search
-    - [] Qdrant
-    - [] ElasticSearch
-    - [] Custom
-- [] Add support to use **Data Lakes** as document database:
-    - [] Amazon S3 Buckets
-    - [] Microsoft Azure Blob Storage
-    - [] Google Cloud Storage
-    - [] Custom
-- [] Add support to use more **Prompt Repositories:**
-    - [] Amazon DynamoDB
-    - [] Microsoft Azure CosmosDB
-    - [] Google Cloud Firestore
-- [] Add support to use **caching & storage services** (TBD).
-- [] Add **example services**:
-    - [] RAG
-    - [] MCP Server
+- [ ] Add support to use **MCP** (Model Context Protocol) Tools, Client and Server.
+- [ ] Add support to use **Vector Databases** from different providers:
+    - [ ] (Amazon) OpenSearch
+    - [ ] Google Cloud Platform Vertex AI
+    - [ ] Microsoft Azure AI Search
+    - [ ] Qdrant
+    - [ ] ElasticSearch
+    - [ ] Custom
+- [ ] Add support to use **Data Lakes** as document database:
+    - [ ] Amazon S3 Buckets
+    - [ ] Microsoft Azure Blob Storage
+    - [ ] Google Cloud Storage
+    - [ ] Custom
+- [ ] Add support to use more **Prompt Repositories:**
+    - [ ] Amazon DynamoDB
+    - [ ] Microsoft Azure CosmosDB
+    - [ ] Google Cloud Firestore
+- [ ] Add support to use **caching & storage services** (TBD).
+- [ ] Add **example services**:
+    - [ ] RAG
+    - [ ] MCP Server
 
 ## Contact
 
