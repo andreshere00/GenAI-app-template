@@ -35,7 +35,7 @@ def test_build_chat_template_valid_input_returns_human_message_by_default(
 
     # Mock the raw template return from storage
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="Hello, {{name}}!", path=template_path
+        content="Hello, ${name}!", path=template_path
     )
 
     # Act
@@ -61,7 +61,7 @@ def test_build_chat_template_system_role_returns_system_message(
     variables = {"behavior": "helpful"}
 
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="You are a {{behavior}} assistant.", path=template_path
+        content="You are a ${behavior} assistant.", path=template_path
     )
 
     # Act
@@ -109,7 +109,7 @@ def test_build_chat_template_missing_variable_does_not_crash(
     variables = {"present_var": "Found"}
 
     mock_storage_adapter.load_template.return_value = PromptTemplate(
-        content="Value: {{present_var}}, Missing: {{missing_var}}", path=template_path
+        content="Value: ${present_var}, Missing: ${missing_var}", path=template_path
     )
 
     # Act

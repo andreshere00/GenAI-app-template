@@ -37,7 +37,7 @@ def test_build_prompt_valid_variables_returns_substituted_content(
     # Arrange
     template_path = "prompts/welcome.txt"
     variables = {"user": "Alice", "role": "Admin"}
-    raw_content = "Welcome {{user}}, your role is {{role}}."
+    raw_content = "Welcome ${user}, your role is ${role}."
     expected_content = "Welcome Alice, your role is Admin."
 
     mock_storage_adapter.load_template.return_value = PromptTemplate(
@@ -62,8 +62,8 @@ def test_build_prompt_missing_variables_performs_safe_substitution(
     # Arrange
     template_path = "prompts/email.txt"
     variables = {"name": "Bob"}  # 'date' is missing
-    raw_content = "Hello {{name}}, today is {{date}}."
-    expected_content = "Hello Bob, today is {{date}}."
+    raw_content = "Hello ${name}, today is ${date}."
+    expected_content = "Hello Bob, today is ${date}."
 
     mock_storage_adapter.load_template.return_value = PromptTemplate(
         content=raw_content, path=template_path
@@ -85,7 +85,7 @@ def test_build_prompt_extra_variables_ignores_them(
     # Arrange
     template_path = "prompts/simple.txt"
     variables = {"name": "Charlie", "unused_var": "I am ignored"}
-    raw_content = "Hi {{name}}."
+    raw_content = "Hi ${name}."
     expected_content = "Hi Charlie."
 
     mock_storage_adapter.load_template.return_value = PromptTemplate(
