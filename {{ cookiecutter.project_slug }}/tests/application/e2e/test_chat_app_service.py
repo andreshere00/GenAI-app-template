@@ -21,7 +21,7 @@ async def run_mocked_support_chat_use_case() -> None:
     # 1. Mock Storage (Simulates the .txt file on disk)
     mock_storage = MagicMock(spec=LocalStorageAdapter)
     mock_storage.load_template.return_value = PromptTemplate(
-        content="Hello {{user_name}}, welcome to {{company}}. Query: {{user_query}}",
+        content="Hello ${user_name}, welcome to ${company}. Query: ${user_query}",
         path="support_agent.txt",
     )
 
