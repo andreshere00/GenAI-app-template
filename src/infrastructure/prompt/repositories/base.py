@@ -11,7 +11,7 @@ class BasePromptRepository:
     def __init__(
         self,
         storage_adapter: PromptStorageAdapter,
-        variable_pattern: str = r"\{\{\s*(\w+)\s*\}\}",
+        variable_pattern: str = r"\$\{[a-z]+\}",
     ) -> None:
         """
         Initialize the BasePromptRepository class.
