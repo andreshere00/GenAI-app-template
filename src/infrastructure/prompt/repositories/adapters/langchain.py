@@ -3,6 +3,7 @@ from typing import Any, Literal
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.infrastructure.prompt.repositories.base import BasePromptRepository
+from src.domain.prompt.types import Prompt
 
 
 class LangchainPromptRepository(BasePromptRepository):
@@ -30,7 +31,10 @@ class LangchainPromptRepository(BasePromptRepository):
             ChatPromptTemplate: Ready to be used in LCEL (e.g., prompt | llm).
         """
         # 1. Reuse the base logic to get the processed domain entity
-        domain_prompt = self._build_prompt(template_path, variables)
+        domain_prompt: Prompt = self._build_prompt(template_path, variables)
 
         # 2. Convert to LangChain ChatPromptTemplate
-        return ChatPromptTemplate.from_messages([(role, domain_prompt.content)])
+        return ChatPromptTemplate.from_messages(
+            [(role, domain_prompt.content)],
+            template_format="mustache",
+        )

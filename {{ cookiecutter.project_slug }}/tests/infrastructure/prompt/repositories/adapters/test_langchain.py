@@ -118,4 +118,4 @@ def test_build_chat_template_missing_variable_does_not_crash(
     # Assert
     messages = result.format_messages()
     assert "Value: Found" in messages[0].content
-    assert "Missing: {missing_var}" in messages[0].content
+    assert "Missing: ${missing_var}" in messages[0].content

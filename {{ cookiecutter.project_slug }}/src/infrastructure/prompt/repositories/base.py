@@ -2,7 +2,9 @@ import re
 from typing import Any
 
 from src.domain.prompt.protocols import PromptStorageAdapter
-from src.domain.prompt.types import Prompt
+from src.domain.prompt.types import Prompt, PromptTemplate
+
+from re import Pattern
 
 
 class BasePromptRepository:
@@ -11,7 +13,7 @@ class BasePromptRepository:
     def __init__(
         self,
         storage_adapter: PromptStorageAdapter,
-        variable_pattern: str = r"\$\{[a-z]+\}",
+        variable_pattern: str = r"\$\{([a-zA-Z0-9_]+)\}",
     ) -> None:
         """
         Initialize the BasePromptRepository class.
@@ -34,12 +36,12 @@ class BasePromptRepository:
         Returns:
             Prompt: Processed content as a Domain Entity.
         """
-        raw_template = self._storage.load_template(template_path)
-        content = raw_template.content
+        raw_template: PromptTemplate = self._storage.load_template(template_path)
+        content: str = raw_template.content
 
         # Substitution using the compiled regex pattern
-        final_content = self._pattern.sub(
-            lambda match: str(variables.get(match.group(1), match.group(0))), content
+        final_content: str = self._pattern.sub(
+            lambda m: str(variables.get(m.group(1), m.group(0))), content
         )
 
         return Prompt(content=final_content)
