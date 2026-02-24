@@ -8,6 +8,7 @@ from ....domain.llm.protocols import ModelConfig
 from ....domain.llm.types import LLMProvider
 from ..base import BaseLlm
 from ..factory import LlmFactory
+from ..utils import resolve_parameters
 
 
 @LlmFactory.register(LLMProvider.AZURE)
@@ -66,18 +67,4 @@ class AzureOpenAIModel(BaseLlm):
         Returns:
             A dictionary containing the final non-None parameters.
         """
-        final_params: dict[str, Any] = {}
-
-        if config:
-            protocol_fields = ModelConfig.__annotations__.keys()
-            for field in protocol_fields:
-                if hasattr(config, field):
-                    value = getattr(config, field)
-                    if value is not None:
-                        final_params[field] = value
-
-        for key, value in overrides.items():
-            if value is not None:
-                final_params[key] = value
-
-        return final_params
+        return resolve_parameters(config, **overrides)
