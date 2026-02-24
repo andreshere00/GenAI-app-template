@@ -8,7 +8,7 @@ from ....domain.llm.protocols import ModelConfig
 from ....domain.llm.types import LLMProvider
 from ..base import BaseLlm
 from ..factory import LlmFactory
-from ..utils import resolve_parameters
+from ...utils import resolve_parameters
 
 
 @LlmFactory.register(LLMProvider.OPENAI)
@@ -45,7 +45,7 @@ class OpenAIModel(BaseLlm):
         Raises:
             ValidationError: If required parameters are missing (handled by LangChain).
         """
-        params: dict[str, Any] = self._resolve_parameters(
+        params: dict[str, Any] = resolve_parameters(
             config, model=model, api_key=api_key, **kwargs
         )
 
@@ -54,20 +54,3 @@ class OpenAIModel(BaseLlm):
                 params[langchain_key] = params.pop(config_key)
 
         self.client = ChatOpenAI(**params)
-
-    def _resolve_parameters(
-        self, config: Optional[ModelConfig], **overrides: Any
-    ) -> dict[str, Any]:
-        """Merge configuration object attributes with explicit overrides.
-
-        This method implements the strategy pattern for parameter extraction.
-        Explicit arguments (overrides) take precedence over the config object.
-
-        Args:
-            config: The source configuration object.
-            **overrides: Dictionary of arguments passed directly to __init__.
-
-        Returns:
-            A dictionary containing the final non-None parameters for instantiation.
-        """
-        return resolve_parameters(config, **overrides)

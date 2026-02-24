@@ -8,7 +8,7 @@ from ....domain.llm.protocols import ModelConfig
 from ....domain.llm.types import LLMProvider
 from ..base import BaseLlm
 from ..factory import LlmFactory
-from ..utils import resolve_parameters
+from ...utils import resolve_parameters
 
 
 @LlmFactory.register(LLMProvider.GOOGLE)
@@ -44,7 +44,7 @@ class GeminiModel(BaseLlm):
         Raises:
             ValidationError: If required parameters are missing (handled by LangChain).
         """
-        params: dict[str, Any] = self._resolve_parameters(
+        params: dict[str, Any] = resolve_parameters(
             config, model=model, api_key=api_key, **kwargs
         )
 
@@ -53,17 +53,3 @@ class GeminiModel(BaseLlm):
                 params[langchain_key] = params.pop(config_key)
 
         self.client = ChatGoogleGenerativeAI(**params)
-
-    def _resolve_parameters(
-        self, config: Optional[ModelConfig], **overrides: Any
-    ) -> dict[str, Any]:
-        """Merge configuration object attributes with explicit overrides.
-
-        Args:
-            config: The source configuration object.
-            **overrides: Dictionary of arguments passed directly to __init__.
-
-        Returns:
-            A dictionary containing the final non-None parameters for instantiation.
-        """
-        return resolve_parameters(config, **overrides)

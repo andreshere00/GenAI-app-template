@@ -8,7 +8,7 @@ from ....domain.llm.protocols import ModelConfig
 from ....domain.llm.types import LLMProvider
 from ..base import BaseLlm
 from ..factory import LlmFactory
-from ..utils import resolve_parameters
+from ...utils import resolve_parameters
 
 
 @LlmFactory.register(LLMProvider.AZURE)
@@ -39,7 +39,7 @@ class AzureOpenAIModel(BaseLlm):
             api_version: The Azure API version (e.g., '2023-05-15').
             **kwargs: Additional arguments (temperature, etc.).
         """
-        params = self._resolve_parameters(
+        params = resolve_parameters(
             config,
             model=model,
             api_key=api_key,
@@ -54,17 +54,3 @@ class AzureOpenAIModel(BaseLlm):
                     params[langchain_key] = params.pop(config_key)
 
         self.client = AzureChatOpenAI(**params)
-
-    def _resolve_parameters(
-        self, config: Optional[ModelConfig], **overrides: Any
-    ) -> dict[str, Any]:
-        """Merges configuration object attributes with explicit overrides.
-
-        Args:
-            config: The source configuration object.
-            **overrides: Dictionary of arguments passed directly to __init__.
-
-        Returns:
-            A dictionary containing the final non-None parameters.
-        """
-        return resolve_parameters(config, **overrides)
