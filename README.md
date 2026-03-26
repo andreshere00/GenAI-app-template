@@ -41,11 +41,21 @@ After executing this command, the console will prompt some questions in order to
     5. Grok
     6. Ollama
     7. OpenAI
- e.g., '1,2,5''): 
-  [8/8] Select services
+ e.g., '1,2,5'): 
+  [8/10] Select services
     1 - none
     2 - chat
-    Choose from [1/2] (1): 
+    3 - rag
+    Choose from [1/2/3] (1): 
+  [9/10] vector_db (Select among the available Vector Databases:
+    1. Cosmos DB
+    2. Milvus
+    3. MongoDB
+    4. OpenSearch
+    5. Pinecone
+    6. Qdrant
+    7. Vertex AI
+ e.g., '1,3,6'): 
 ```
 
 - `project_name`: Name of the project. If no provided, default value between parenthesis will be taken.
@@ -55,20 +65,22 @@ After executing this command, the console will prompt some questions in order to
 - `author_name`: Name of the project author. Will be placed in the README and the `pyproject.toml` project config file. 
 - `author_mail`: Mail of the project author. Same observations as `author_name`.
 - `llm_providers`. The LLM providers that you want to implement for your project. Introduce the identifiers for each LLM, splitted by commas. Example: `1,2,5`.
-- `services`: Select the services that you want to implement. Note that only Chat service is available at the moment. You can select among the available options providing the identifier number.
+- `services`: Select the services that you want to implement. Available options: `none`, `chat`, `rag`.
+- `vector_db`: The vector databases to include. Introduce the identifiers splitted by commas. Example: `1,3,6`. Only applicable when `rag` service is selected.
 
 And that's it! If no validation errors raise, your application template is ready to be used.
 
 ## Next Steps
 
 - [ ] Add support to use **MCP** (Model Context Protocol) Tools, Client and Server.
-- [ ] Add support to use **Vector Databases** from different providers:
-    - [ ] (Amazon) OpenSearch
-    - [ ] Google Cloud Platform Vertex AI
-    - [ ] Microsoft Azure AI Search
-    - [ ] Qdrant
-    - [ ] ElasticSearch
-    - [ ] Custom
+- [x] Add support to use **Vector Databases** from different providers:
+    - [x] Azure Cosmos DB
+    - [x] Milvus
+    - [x] MongoDB Atlas
+    - [x] OpenSearch
+    - [x] Pinecone
+    - [x] Qdrant
+    - [x] Google Vertex AI
 - [ ] Add support to use **Data Lakes** as document database:
     - [ ] Amazon S3 Buckets
     - [ ] Microsoft Azure Blob Storage
@@ -80,7 +92,7 @@ And that's it! If no validation errors raise, your application template is ready
     - [ ] Google Cloud Firestore
 - [ ] Add support to use **caching & storage services** (TBD).
 - [ ] Add **example services**:
-    - [ ] RAG
+    - [x] RAG
     - [ ] MCP Server
 
 ## Contact

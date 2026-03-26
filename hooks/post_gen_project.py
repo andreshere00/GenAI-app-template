@@ -10,6 +10,14 @@ def remove_empty_python_files() -> None:
         if path.is_file() and not path.read_text().strip():
             path.unlink()
 
+
+def remove_empty_directories() -> None:
+    """Remove empty directories left after Jinja2 conditional rendering."""
+    print("Removing empty directories...")
+    for path in sorted(Path(".").rglob("*"), reverse=True):
+        if path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+
 def run_uv_command(args: list[str]) -> None:
     """Execute a command using uv run"""
     try:
@@ -39,6 +47,7 @@ def format_project_code() -> None:
 
 if __name__ == "__main__":
     remove_empty_python_files()
+    remove_empty_directories()
     format_project_code()
     run_template_tests()
     print("Template has been created successfully! :)")

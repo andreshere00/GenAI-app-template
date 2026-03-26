@@ -12,7 +12,14 @@ dependencies = [
     "langchain-openai>=1.1.7",
     "langchain-xai>=1.2.1",
     "pre-commit>=4.5.1",
-]
+{% if "1" in cookiecutter.vector_db %}    "azure-cosmos>=4.15.0",
+{% endif %}{% if "2" in cookiecutter.vector_db %}    "pymilvus>=2.6.10",
+{% endif %}{% if "3" in cookiecutter.vector_db %}    "pymongo>=4.16.0",
+{% endif %}{% if "4" in cookiecutter.vector_db %}    "opensearch-py>=2.8.0",
+{% endif %}{% if "5" in cookiecutter.vector_db %}    "pinecone>=8.1.0",
+{% endif %}{% if "6" in cookiecutter.vector_db %}    "qdrant-client>=1.17.0",
+{% endif %}{% if "7" in cookiecutter.vector_db %}    "google-cloud-aiplatform>=1.141.0",
+{% endif %}]
 authors = [
     {name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}"}
 ]
