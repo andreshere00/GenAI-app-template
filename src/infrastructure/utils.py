@@ -1,7 +1,36 @@
+from dataclasses import asdict, is_dataclass
 from typing import Any, Optional
 
 
-def resolve_parameters(config: Optional[Any], **overrides: Any) -> dict[str, Any]:
+def _config_to_dict(config: Optional[Any]) -> dict[str, Any]:
+    """Convert supported config shapes into a dictionary."""
+    if config is None:
+        return {}
+
+    if isinstance(config, dict):
+        return dict(config)
+
+    if is_dataclass(config):
+        return asdict(config)
+
+    # Pydantic v2
+    if hasattr(config, "model_dump") and callable(config.model_dump):
+        return config.model_dump()
+
+    # Pydantic v1
+    if hasattr(config, "dict") and callable(config.dict):
+        return config.dict()
+
+    return vars(config)
+
+
+def resolve_parameters(
+    config: Optional[Any],
+    *,
+    allowed_keys: Optional[set[str]] = None,
+    aliases: Optional[dict[str, str]] = None,
+    **overrides: Any,
+) -> dict[str, Any]:
     """Merges configuration object attributes with explicit overrides.
 
     Args:
@@ -12,18 +41,25 @@ def resolve_parameters(config: Optional[Any], **overrides: Any) -> dict[str, Any
         A dictionary containing the final non-None parameters.
     """
     final_params: dict[str, Any] = {}
+    aliases = aliases or {}
 
-    if config:
-        # Assuming config is a Protocol or has __annotations__
-        protocol_fields = getattr(config, '__annotations__', {}).keys()
-        for field in protocol_fields:
-            if hasattr(config, field):
-                value = getattr(config, field)
-                if value is not None:
-                    final_params[field] = value
+    source = _config_to_dict(config)
+    source_kwargs = source.pop("kwargs", None)
+    if isinstance(source_kwargs, dict):
+        source.update(source_kwargs)
+
+    for key, value in source.items():
+        if value is None:
+            continue
+        mapped_key = aliases.get(key, key)
+        if allowed_keys is None or mapped_key in allowed_keys:
+            final_params[mapped_key] = value
 
     for key, value in overrides.items():
-        if value is not None:
-            final_params[key] = value
+        if value is None:
+            continue
+        mapped_key = aliases.get(key, key)
+        if allowed_keys is None or mapped_key in allowed_keys:
+            final_params[mapped_key] = value
 
     return final_params

@@ -8,7 +8,6 @@ from ....domain.llm.protocols import ModelConfig
 from ....domain.llm.types import LLMProvider
 from ..base import BaseLlm
 from ..factory import LlmFactory
-from ...utils import resolve_parameters
 
 
 @LlmFactory.register(LLMProvider.AWS)
@@ -44,7 +43,7 @@ class BedrockModel(BaseLlm):
         Raises:
             ValidationError: If required parameters are missing (handled by LangChain).
         """
-        params: dict[str, Any] = self.resolve_parameters(
+        params: dict[str, Any] = self._resolve_parameters(
             config, model=model, api_key=api_key, **kwargs
         )
 
