@@ -1,7 +1,30 @@
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import List
+
+SERVICE: str = "{{ cookiecutter.services }}"
+
+RAG_ONLY_DIRS: list[str] = [
+    "src/domain/embedding",
+    "src/domain/vector",
+    "src/infrastructure/embedding",
+    "src/infrastructure/vector",
+    "tests/infrastructure/embedding",
+    "tests/infrastructure/vector",
+]
+
+
+def remove_rag_components() -> None:
+    """Remove embedding and vector DB directories when rag is not selected."""
+    if SERVICE == "rag":
+        return
+    print("Service is not 'rag'. Removing embedding and vector DB components...")
+    for dir_path in RAG_ONLY_DIRS:
+        target = Path(dir_path)
+        if target.exists():
+            shutil.rmtree(target)
+
 
 def remove_empty_python_files() -> None:
     """Remove empty .py files (0 bytes or only whitespace) from root."""
@@ -46,6 +69,7 @@ def format_project_code() -> None:
             print(f"Warning: {' '.join(cmd[:3])} not found. Skipping formatting.")
 
 if __name__ == "__main__":
+    remove_rag_components()
     remove_empty_python_files()
     remove_empty_directories()
     format_project_code()

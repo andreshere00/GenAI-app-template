@@ -209,3 +209,8 @@ __marimo__/
 
 # Cookiecutter generated template
 genai-application-template
+
+# Cursor rules
+.cursor/
+.cursor
+.cursor/*
