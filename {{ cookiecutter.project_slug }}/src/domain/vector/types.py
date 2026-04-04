@@ -1,23 +1,58 @@
 {%- if cookiecutter.vector_db -%}
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional
+
+
+class VectorDBProvider(str, Enum):
+    """Supported vector database providers."""
+{% if "1" in cookiecutter.vector_db %}
+    COSMOS_DB = "cosmos-db"
+{%- endif %}
+{% if "2" in cookiecutter.vector_db %}
+    MILVUS = "milvus"
+{%- endif %}
+{% if "3" in cookiecutter.vector_db %}
+    MONGODB = "mongodb"
+{%- endif %}
+{% if "4" in cookiecutter.vector_db %}
+    OPENSEARCH = "opensearch"
+{%- endif %}
+{% if "5" in cookiecutter.vector_db %}
+    PINECONE = "pinecone"
+{%- endif %}
+{% if "6" in cookiecutter.vector_db %}
+    QDRANT = "qdrant"
+{%- endif %}
+{% if "7" in cookiecutter.vector_db %}
+    VERTEX_AI = "vertex-ai"
+{%- endif %}
+
+
+class DistanceMetric(str, Enum):
+    """Standardised distance / similarity metrics.
+
+    Adapters translate these into provider-specific values.
+    """
+
+    COSINE = "cosine"
+    EUCLIDEAN = "euclidean"
+    DOT_PRODUCT = "dot_product"
 
 
 @dataclass
 class VectorDBConfig:
-    """Configuration for vector database connections.
+    """Concrete configuration for vector database connections.
 
-    This class defines the standard configuration parameters for initializing
-    any vector database provider. Not all fields are required for all
-    providers. Check the specific provider's documentation to understand
-    which parameters are needed.
+    Not all fields are required for every provider. Check each
+    provider's documentation to understand which parameters apply.
 
     Attributes:
-        host: Hostname or IP address of the vector database server.
-        port: Port number for the vector database server.
+        host: Hostname or IP address of the server.
+        port: Port number for the server.
         url: Full URL for cloud-hosted or HTTP-based databases.
         api_key: API key for authentication with cloud services.
-        grpc_port: gRPC port for high-performance connections (Qdrant).
+        grpc_port: gRPC port for high-performance connections.
         https: Whether to use HTTPS for connections.
         prefix: URL prefix for the database endpoint.
         timeout: Connection timeout in seconds.
@@ -42,5 +77,22 @@ class VectorDBConfig:
     database: Optional[str] = None
     collection: Optional[str] = None
     region: Optional[str] = None
+    kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CollectionConfig:
+    """Concrete configuration for a vector collection / index.
+
+    Attributes:
+        name: Collection or index name (required).
+        dimension: Vector dimensionality.
+        metric: Distance metric (use DistanceMetric enum values).
+        kwargs: Additional provider-specific collection parameters.
+    """
+
+    name: str = ""
+    dimension: Optional[int] = None
+    metric: Optional[str] = None
     kwargs: dict[str, Any] = field(default_factory=dict)
 {%- endif -%}

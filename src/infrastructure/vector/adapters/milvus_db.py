@@ -2,11 +2,17 @@ from typing import Any, Optional
 
 from pymilvus import MilvusClient
 
-from ....domain.vector import VectorDBConfig
+from ....domain.vector import (
+    MILVUS_PARAM_MAP,
+    CollectionConfig,
+    VectorDBConfig,
+    VectorDBProvider,
+)
 from ...utils import resolve_parameters
 from ..base import BaseVectorDatabase
+from ..factory import VectorDBFactory
 
-MILVUS_ALLOWED_KEYS = {
+MILVUS_ALLOWED_KEYS: set[str] = {
     "uri",
     "token",
     "db_name",
@@ -14,21 +20,17 @@ MILVUS_ALLOWED_KEYS = {
 }
 
 
+@VectorDBFactory.register(VectorDBProvider.MILVUS)
 class MilvusVectorDatabase(BaseVectorDatabase):
     """Wrapper for Milvus vector database client.
 
-    Milvus is an open-source vector database designed for similarity search at
-    scale. This adapter provides a unified interface for initializing and
-    managing Milvus connections.
-
     Configuration parameters:
-        - host: Hostname of Milvus server (default: "localhost")
-        - port: Port number (default: 19530)
-        - database: Database name (default: "default")
-        - uri: Connection URI string (alternative to host:port)
-        - username: Username for authentication (optional)
-        - password: Password for authentication (optional)
-        - timeout: Connection timeout in seconds (default: 60)
+        - host: Hostname of Milvus server (default: "localhost").
+        - port: Port number (default: 19530).
+        - database: Database name (default: "default").
+        - uri: Connection URI string (alternative to host:port).
+        - username / password: Authentication credentials.
+        - timeout: Connection timeout in seconds (default: 60).
     """
 
     def __init__(
@@ -78,12 +80,14 @@ class MilvusVectorDatabase(BaseVectorDatabase):
         resolved_username = username or config_user
         resolved_password = password or config_password
         if resolved_username and resolved_password:
-            resolved_token = f"{resolved_username}:{resolved_password}"
+            resolved_token = (
+                f"{resolved_username}:{resolved_password}"
+            )
 
         params = resolve_parameters(
             config,
             allowed_keys=MILVUS_ALLOWED_KEYS,
-            aliases={"database": "db_name"},
+            aliases=MILVUS_PARAM_MAP,
             uri=resolved_uri,
             db_name=database,
             token=resolved_token,
@@ -93,8 +97,10 @@ class MilvusVectorDatabase(BaseVectorDatabase):
 
         self.client = MilvusClient(**params)
 
+    # -- Connection --------------------------------------------------
+
     def connect(self) -> None:
-        """Establish connection to Milvus database.
+        """Establish connection to Milvus.
 
         The MilvusClient constructor already establishes the connection.
         """
@@ -114,3 +120,66 @@ class MilvusVectorDatabase(BaseVectorDatabase):
             return self.client.get_server_version() is not None
         except Exception:
             return False
+
+    # -- Collection CRUD ---------------------------------------------
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        """Create a Milvus collection.
+
+        Args:
+            config: Collection configuration parameters.
+
+        Raises:
+            RuntimeError: If creation fails.
+        """
+        params: dict[str, Any] = {
+            "collection_name": config.name,
+        }
+        if config.dimension is not None:
+            params["dimension"] = config.dimension
+        if config.metric is not None:
+            params["metric_type"] = config.metric.upper()
+        params.update(config.kwargs)
+        try:
+            self.client.create_collection(**params)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to create Milvus collection "
+                f"'{config.name}': {exc}"
+            ) from exc
+
+    def delete_collection(self, name: str) -> None:
+        """Delete a Milvus collection.
+
+        Args:
+            name: Collection name.
+
+        Raises:
+            RuntimeError: If deletion fails.
+        """
+        try:
+            self.client.drop_collection(collection_name=name)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to delete Milvus collection "
+                f"'{name}': {exc}"
+            ) from exc
+
+    def list_collections(self) -> list[str]:
+        """Return sorted names of all Milvus collections.
+
+        Returns:
+            Sorted list of collection names.
+        """
+        return sorted(self.client.list_collections())
+
+    def has_collection(self, name: str) -> bool:
+        """Check whether a Milvus collection exists.
+
+        Args:
+            name: Collection name.
+
+        Returns:
+            True if the collection exists, False otherwise.
+        """
+        return self.client.has_collection(collection_name=name)

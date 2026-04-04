@@ -1,11 +1,17 @@
+from typing import Any
+
 import pytest
 
-from src.domain.vector import VectorDBConfig
+from src.domain.vector import CollectionConfig, VectorDBConfigDTO as VectorDBConfig
 from src.infrastructure.vector.base import BaseVectorDatabase
 
 
 class ConcreteVectorDatabase(BaseVectorDatabase):
     """Test double for validating the abstract base class contract."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._collections: dict[str, Any] = {}
 
     def connect(self) -> None:
         self.client = object()
@@ -15,6 +21,18 @@ class ConcreteVectorDatabase(BaseVectorDatabase):
 
     def health(self) -> bool:
         return self.client is not None
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        self._collections[config.name] = config
+
+    def delete_collection(self, name: str) -> None:
+        self._collections.pop(name, None)
+
+    def list_collections(self) -> list[str]:
+        return sorted(self._collections)
+
+    def has_collection(self, name: str) -> bool:
+        return name in self._collections
 
 
 class TestBaseVectorDatabase:

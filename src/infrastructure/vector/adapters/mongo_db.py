@@ -2,11 +2,17 @@ from typing import Any, Optional
 
 from pymongo import MongoClient
 
-from ....domain.vector import VectorDBConfig
+from ....domain.vector import (
+    MONGO_PARAM_MAP,
+    CollectionConfig,
+    VectorDBConfig,
+    VectorDBProvider,
+)
 from ...utils import resolve_parameters
 from ..base import BaseVectorDatabase
+from ..factory import VectorDBFactory
 
-MONGO_ALLOWED_KEYS = {
+MONGO_ALLOWED_KEYS: set[str] = {
     "host",
     "port",
     "username",
@@ -18,22 +24,17 @@ MONGO_ALLOWED_KEYS = {
 }
 
 
+@VectorDBFactory.register(VectorDBProvider.MONGODB)
 class MongoDBVectorDatabase(BaseVectorDatabase):
     """Wrapper for MongoDB vector database client.
 
-    MongoDB with Atlas Vector Search provides vector similarity search
-    capabilities. This adapter manages connections to MongoDB instances,
-    including MongoDB Atlas.
-
     Configuration parameters:
-        - host: MongoDB server hostname (e.g., "localhost")
-        - port: MongoDB server port (default: 27017)
-        - username: Username for authentication
-        - password: Password for authentication
-        - database: Database name to connect to
-        - url: Full MongoDB connection string (alternative to host:port)
-        - timeout: Connection timeout in milliseconds
-        - serverSelectionTimeoutMS: Server selection timeout in milliseconds
+        - host: MongoDB server hostname.
+        - port: Server port (default: 27017).
+        - username / password: Authentication credentials.
+        - database: Database name to connect to.
+        - url: Full MongoDB connection string.
+        - timeout: Connection timeout in milliseconds.
     """
 
     def __init__(
@@ -58,7 +59,7 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
             username: Username for authentication.
             password: Password for authentication.
             database: Default database name.
-            url: MongoDB connection string (mongodb:// or mongodb+srv://).
+            url: MongoDB connection string.
             timeout: Connection timeout in milliseconds.
             **kwargs: Additional PyMongo-specific parameters.
         """
@@ -67,46 +68,39 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
         config_fields = resolve_parameters(
             config,
             allowed_keys={
-                "url",
-                "host",
-                "port",
-                "username",
-                "password",
-                "database",
-                "timeout",
+                "url", "host", "port",
+                "username", "password",
+                "database", "timeout",
             },
         )
 
-        config_url = config_fields.get("url")
-        config_host = config_fields.get("host")
-        config_port = config_fields.get("port")
-        config_user = config_fields.get("username")
-        config_password = config_fields.get("password")
-        config_database = config_fields.get("database")
-        config_timeout = config_fields.get("timeout")
+        cfg_url = url or config_fields.get("url")
+        cfg_host = host or config_fields.get("host")
+        cfg_port = port or config_fields.get("port")
+        cfg_user = username or config_fields.get("username")
+        cfg_password = password or config_fields.get("password")
+        cfg_database = database or config_fields.get("database")
+        cfg_timeout = timeout or config_fields.get("timeout")
 
-        cfg_url = url or config_url
-        cfg_host = host or config_host
-        cfg_port = port or config_port
-        cfg_user = username or config_user
-        cfg_password = password or config_password
-        cfg_database = database or config_database
-        cfg_timeout = timeout or config_timeout
-
-        # If url is provided, use it directly; otherwise build from components
-        if cfg_url is None and cfg_host is not None and cfg_user and cfg_password:
-            # Use SRV form when credentials are available.
+        if (
+            cfg_url is None
+            and cfg_host is not None
+            and cfg_user
+            and cfg_password
+        ):
             cfg_url = (
-                f"mongodb+srv://{cfg_user}:{cfg_password}@{cfg_host}"
-                f"/{cfg_database or ''}"
+                f"mongodb+srv://{cfg_user}:{cfg_password}"
+                f"@{cfg_host}/{cfg_database or ''}"
             )
         elif cfg_url is None and cfg_host is not None:
-            cfg_url = f"mongodb://{cfg_host}:{cfg_port or 27017}"
+            cfg_url = (
+                f"mongodb://{cfg_host}:{cfg_port or 27017}"
+            )
 
         params = resolve_parameters(
             config,
             allowed_keys=MONGO_ALLOWED_KEYS,
-            aliases={"timeout": "serverSelectionTimeoutMS"},
+            aliases=MONGO_PARAM_MAP,
             host=cfg_url,
             port=None if cfg_url else cfg_port,
             username=cfg_user,
@@ -116,18 +110,22 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
         )
 
         self.client = MongoClient(**params)
-        self.database_name = cfg_database
+        self.database_name: Optional[str] = cfg_database
+
+    # -- Connection --------------------------------------------------
 
     def connect(self) -> None:
         """Establish connection to MongoDB.
 
-        The MongoClient constructor establishes the connection lazily.
-        This method forces connection validation.
+        Raises:
+            ConnectionError: If connection cannot be established.
         """
         try:
             self.client.admin.command("ping")
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to MongoDB: {e}")
+            raise ConnectionError(
+                f"Failed to connect to MongoDB: {e}"
+            )
 
     def disconnect(self) -> None:
         """Close the MongoDB connection."""
@@ -145,3 +143,70 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
             return True
         except Exception:
             return False
+
+    # -- Collection CRUD ---------------------------------------------
+
+    def _get_database(self) -> Any:
+        """Return the database handle for the configured database."""
+        if not self.database_name:
+            raise RuntimeError(
+                "No database name configured for MongoDB."
+            )
+        return self.client[self.database_name]
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        """Create a MongoDB collection.
+
+        Args:
+            config: Collection configuration. Pass additional
+                options via ``config.kwargs``.
+
+        Raises:
+            RuntimeError: If creation fails.
+        """
+        try:
+            db = self._get_database()
+            db.create_collection(config.name, **config.kwargs)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to create MongoDB collection "
+                f"'{config.name}': {exc}"
+            ) from exc
+
+    def delete_collection(self, name: str) -> None:
+        """Delete a MongoDB collection.
+
+        Args:
+            name: Collection name.
+
+        Raises:
+            RuntimeError: If deletion fails.
+        """
+        try:
+            db = self._get_database()
+            db.drop_collection(name)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to delete MongoDB collection "
+                f"'{name}': {exc}"
+            ) from exc
+
+    def list_collections(self) -> list[str]:
+        """Return sorted names of all MongoDB collections.
+
+        Returns:
+            Sorted list of collection names.
+        """
+        db = self._get_database()
+        return sorted(db.list_collection_names())
+
+    def has_collection(self, name: str) -> bool:
+        """Check whether a MongoDB collection exists.
+
+        Args:
+            name: Collection name.
+
+        Returns:
+            True if the collection exists, False otherwise.
+        """
+        return name in self.list_collections()

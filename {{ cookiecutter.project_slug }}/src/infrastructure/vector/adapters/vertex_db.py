@@ -3,11 +3,17 @@ from typing import Any, Optional
 
 from google.cloud import aiplatform
 
-from ....domain.vector import VectorDBConfig
+from ....domain.vector import (
+    VERTEX_PARAM_MAP,
+    CollectionConfig,
+    VectorDBConfig,
+    VectorDBProvider,
+)
 from ...utils import resolve_parameters
 from ..base import BaseVectorDatabase
+from ..factory import VectorDBFactory
 
-VERTEX_ALLOWED_KEYS = {
+VERTEX_ALLOWED_KEYS: set[str] = {
     "project_id",
     "region",
     "index_name",
@@ -17,20 +23,17 @@ VERTEX_ALLOWED_KEYS = {
 }
 
 
+@VectorDBFactory.register(VectorDBProvider.VERTEX_AI)
 class VertexDBVectorDatabase(BaseVectorDatabase):
     """Wrapper for Google Vertex AI Vector Search client.
 
-    Google Vertex AI Vector Search (formerly Matching Engine) is a managed
-    vector database service on Google Cloud Platform. This adapter manages
-    connections to Vertex AI Vector Search indexes.
-
     Configuration parameters:
-        - project_id: Google Cloud Project ID (required)
-        - region: GCP region for the service (default: "us-central1")
-        - index_name: Name of the vector search index
-        - credentials: Path to service account JSON key (optional)
-        - api_key: Google Cloud API key (alternative to credentials)
-        - timeout: Request timeout in seconds
+        - project_id: Google Cloud Project ID (required).
+        - region: GCP region (default: "us-central1").
+        - index_name: Name of the vector search index.
+        - credentials: Path to service account JSON key.
+        - api_key: Google Cloud API key (alternative to credentials).
+        - timeout: Request timeout in seconds.
     """
 
     def __init__(
@@ -52,7 +55,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             project_id: Google Cloud Project ID.
             region: GCP region for the service.
             index_name: Name of the vector search index.
-            credentials: Path to service account credentials JSON file.
+            credentials: Path to service account credentials.
             api_key: Google API key for authentication.
             timeout: Request timeout in seconds.
             **kwargs: Additional Vertex AI-specific parameters.
@@ -62,7 +65,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         params = resolve_parameters(
             config,
             allowed_keys=VERTEX_ALLOWED_KEYS,
-            aliases={"database": "project_id", "collection": "index_name"},
+            aliases=VERTEX_PARAM_MAP,
             project_id=project_id,
             region=region,
             index_name=index_name,
@@ -72,18 +75,18 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             **kwargs,
         )
 
-        self.project_id = params.get("project_id")
-        self.region = params.get("region") or "us-central1"
-        self.index_name = params.get("index_name")
-        self.credentials = params.get("credentials")
-        self.api_key = params.get("api_key")
-        self.timeout = params.get("timeout")
-        self._initialized = False
-
-        self.client = None
+        self.project_id: Optional[str] = params.get("project_id")
+        self.region: str = params.get("region") or "us-central1"
+        self.index_name: Optional[str] = params.get("index_name")
+        self.credentials: Optional[str] = params.get(
+            "credentials"
+        )
+        self.api_key: Optional[str] = params.get("api_key")
+        self.timeout: Optional[int] = params.get("timeout")
+        self._initialized: bool = False
 
     def _init_client_context(self) -> None:
-        """Initialize SDK context for this adapter instance."""
+        """Initialize the Vertex AI SDK context."""
         init_kwargs: dict[str, Any] = {
             "project": self.project_id,
             "location": self.region,
@@ -97,11 +100,13 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         aiplatform.init(**init_kwargs)
         self._initialized = True
 
+    # -- Connection --------------------------------------------------
+
     def connect(self) -> None:
         """Establish connection to Vertex AI Vector Search.
 
-        Vertex AI uses automatic authentication via Application Default
-        Credentials (ADC) or service account key.
+        Raises:
+            ConnectionError: If connection cannot be established.
         """
         try:
             if not self._initialized:
@@ -115,17 +120,18 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
                 self.client = index
         except Exception as e:
             raise ConnectionError(
-                f"Failed to connect to Vertex AI index {self.index_name}: {e}"
+                f"Failed to connect to Vertex AI index "
+                f"{self.index_name}: {e}"
             )
 
     def disconnect(self) -> None:
-        """Close the Vertex AI Vector Search connection.
+        """Close the Vertex AI connection.
 
-        Vertex AI automatically manages connections, so no cleanup needed.
+        Vertex AI automatically manages connections.
         """
 
     def health(self) -> bool:
-        """Check if Vertex AI Vector Search connection is healthy.
+        """Check if Vertex AI connection is healthy.
 
         Returns:
             True if service is accessible, False otherwise.
@@ -143,4 +149,91 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             return True
         except Exception:
             return False
+
+    # -- Collection CRUD ---------------------------------------------
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        """Create a Vertex AI Matching Engine index.
+
+        Args:
+            config: Collection configuration. ``dimension`` is
+                required. Pass additional tree-AH parameters via
+                ``config.kwargs``.
+
+        Raises:
+            RuntimeError: If creation fails.
+        """
+        if not self._initialized:
+            self._init_client_context()
+        extra: dict[str, Any] = dict(config.kwargs)
+        try:
+            aiplatform.MatchingEngineIndex.create_tree_ah_index(
+                display_name=config.name,
+                dimensions=config.dimension or 0,
+                distance_measure_type=config.metric or "COSINE",
+                project=self.project_id,
+                location=self.region,
+                **extra,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to create Vertex AI index "
+                f"'{config.name}': {exc}"
+            ) from exc
+
+    def delete_collection(self, name: str) -> None:
+        """Delete a Vertex AI Matching Engine index.
+
+        Args:
+            name: Index display name.
+
+        Raises:
+            RuntimeError: If deletion fails.
+        """
+        if not self._initialized:
+            self._init_client_context()
+        try:
+            indexes = aiplatform.MatchingEngineIndex.list(
+                project=self.project_id,
+                location=self.region,
+            )
+            for idx in indexes:
+                if idx.display_name == name:
+                    idx.delete()
+                    return
+            raise RuntimeError(
+                f"Vertex AI index '{name}' not found."
+            )
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to delete Vertex AI index "
+                f"'{name}': {exc}"
+            ) from exc
+
+    def list_collections(self) -> list[str]:
+        """Return sorted display names of all Vertex AI indexes.
+
+        Returns:
+            Sorted list of index display names.
+        """
+        if not self._initialized:
+            self._init_client_context()
+        indexes = aiplatform.MatchingEngineIndex.list(
+            project=self.project_id,
+            location=self.region,
+        )
+        return sorted(idx.display_name for idx in indexes)
+
+    def has_collection(self, name: str) -> bool:
+        """Check whether a Vertex AI index exists.
+
+        Args:
+            name: Index display name.
+
+        Returns:
+            True if the index exists, False otherwise.
+        """
+        return name in self.list_collections()
 {%- endif -%}

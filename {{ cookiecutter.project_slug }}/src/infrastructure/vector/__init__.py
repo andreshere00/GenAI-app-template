@@ -2,6 +2,7 @@
 """Infrastructure layer for vector database integrations."""
 
 from .base import BaseVectorDatabase
+from .factory import VectorDBFactory
 {% if "1" in cookiecutter.vector_db %}
 from .adapters import CosmosDBVectorDatabase
 {%- endif %}
@@ -26,6 +27,7 @@ from .adapters import VertexDBVectorDatabase
 
 __all__ = [
     "BaseVectorDatabase",
+    "VectorDBFactory",
     {%- if "1" in cookiecutter.vector_db %}
     "CosmosDBVectorDatabase",
     {%- endif %}

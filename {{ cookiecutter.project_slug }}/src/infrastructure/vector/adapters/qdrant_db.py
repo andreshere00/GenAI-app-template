@@ -2,12 +2,19 @@
 from typing import Any, Optional
 
 from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
 
-from ....domain.vector import VectorDBConfig
+from ....domain.vector import (
+    CollectionConfig,
+    DistanceMetric,
+    VectorDBConfig,
+    VectorDBProvider,
+)
 from ...utils import resolve_parameters
 from ..base import BaseVectorDatabase
+from ..factory import VectorDBFactory
 
-QDRANT_ALLOWED_KEYS = {
+QDRANT_ALLOWED_KEYS: set[str] = {
     "url",
     "host",
     "port",
@@ -20,25 +27,27 @@ QDRANT_ALLOWED_KEYS = {
     "path",
 }
 
+_METRIC_MAP: dict[str, Distance] = {
+    DistanceMetric.COSINE: Distance.COSINE,
+    DistanceMetric.EUCLIDEAN: Distance.EUCLID,
+    DistanceMetric.DOT_PRODUCT: Distance.DOT,
+}
 
+
+@VectorDBFactory.register(VectorDBProvider.QDRANT)
 class QdrantVectorDatabase(BaseVectorDatabase):
     """Wrapper for Qdrant vector database client.
 
-    Qdrant is an open-source vector database optimized for similarity search
-    at scale. This adapter provides a unified interface for initializing and
-    managing Qdrant connections.
-
     Configuration parameters:
-        - url: HTTP endpoint URL (e.g., "http://localhost:6333")
-        - api_key: API key for cloud deployments
-        - host: Host address for local/self-hosted instances
-        - port: Port number (default: 6333)
-        - grpc_port: gRPC port for high-performance connections
-        - prefer_grpc: Use gRPC instead of REST (default: False)
-        - https: Use HTTPS for connections
-        - prefix: URL path prefix
-        - timeout: Request timeout in seconds
-        - path: Path for in-memory/persisted local mode
+        - url: HTTP endpoint URL (e.g., "http://localhost:6333").
+        - api_key: API key for cloud deployments.
+        - host / port: Address for local or self-hosted instances.
+        - grpc_port: gRPC port for high-performance connections.
+        - prefer_grpc: Use gRPC instead of REST.
+        - https: Use HTTPS for connections.
+        - prefix: URL path prefix.
+        - timeout: Request timeout in seconds.
+        - path: Path for in-memory / persisted local mode.
     """
 
     def __init__(
@@ -93,16 +102,20 @@ class QdrantVectorDatabase(BaseVectorDatabase):
 
         self.client = QdrantClient(**params)
 
+    # -- Connection --------------------------------------------------
+
     def connect(self) -> None:
         """Establish connection to Qdrant.
 
-        The QdrantClient constructor establishes the connection.
-        This method validates the connection.
+        Raises:
+            ConnectionError: If connection cannot be established.
         """
         try:
             self.client.get_collections()
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to Qdrant: {e}")
+            raise ConnectionError(
+                f"Failed to connect to Qdrant: {e}"
+            )
 
     def disconnect(self) -> None:
         """Close the Qdrant connection."""
@@ -119,4 +132,74 @@ class QdrantVectorDatabase(BaseVectorDatabase):
             return self.client.http_client is not None
         except Exception:
             return False
+
+    # -- Collection CRUD ---------------------------------------------
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        """Create a Qdrant collection.
+
+        Args:
+            config: Collection configuration. ``dimension`` is required.
+
+        Raises:
+            RuntimeError: If creation fails.
+        """
+        distance = _METRIC_MAP.get(
+            config.metric, Distance.COSINE
+        ) if config.metric else Distance.COSINE
+        vectors_config = VectorParams(
+            size=config.dimension or 0,
+            distance=distance,
+        )
+        extra: dict[str, Any] = dict(config.kwargs)
+        try:
+            self.client.create_collection(
+                collection_name=config.name,
+                vectors_config=vectors_config,
+                **extra,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to create Qdrant collection "
+                f"'{config.name}': {exc}"
+            ) from exc
+
+    def delete_collection(self, name: str) -> None:
+        """Delete a Qdrant collection.
+
+        Args:
+            name: Collection name.
+
+        Raises:
+            RuntimeError: If deletion fails.
+        """
+        try:
+            self.client.delete_collection(collection_name=name)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to delete Qdrant collection "
+                f"'{name}': {exc}"
+            ) from exc
+
+    def list_collections(self) -> list[str]:
+        """Return sorted names of all Qdrant collections.
+
+        Returns:
+            Sorted list of collection names.
+        """
+        response = self.client.get_collections()
+        return sorted(c.name for c in response.collections)
+
+    def has_collection(self, name: str) -> bool:
+        """Check whether a Qdrant collection exists.
+
+        Args:
+            name: Collection name.
+
+        Returns:
+            True if the collection exists, False otherwise.
+        """
+        return self.client.collection_exists(
+            collection_name=name
+        )
 {%- endif -%}

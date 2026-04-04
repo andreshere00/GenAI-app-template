@@ -1,6 +1,6 @@
 from typing import Any
 
-from src.domain.vector import VectorDBConfig
+from src.domain.vector import VectorDBConfigDTO as VectorDBConfig
 from src.infrastructure.vector.base import BaseVectorDatabase
 
 

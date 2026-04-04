@@ -10,14 +10,16 @@ from .adapters import (
     VertexDBVectorDatabase,
 )
 from .base import BaseVectorDatabase
+from .factory import VectorDBFactory
 
 __all__ = [
     "BaseVectorDatabase",
-    "QdrantVectorDatabase",
+    "VectorDBFactory",
+    "CosmosDBVectorDatabase",
     "MilvusVectorDatabase",
     "MongoDBVectorDatabase",
     "OpenSearchVectorDatabase",
     "PineconeVectorDatabase",
-    "CosmosDBVectorDatabase",
+    "QdrantVectorDatabase",
     "VertexDBVectorDatabase",
 ]

@@ -1,3 +1,4 @@
+{%- if cookiecutter.vector_db -%}
 from __future__ import annotations
 
 from typing import Any, Optional, Protocol
@@ -127,3 +128,4 @@ class VectorDB(Protocol):
             True if the collection exists, False otherwise.
         """
         ...
+{%- endif -%}

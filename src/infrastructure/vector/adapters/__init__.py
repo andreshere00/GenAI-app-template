@@ -9,11 +9,11 @@ from .qdrant_db import QdrantVectorDatabase
 from .vertex_db import VertexDBVectorDatabase
 
 __all__ = [
-    "QdrantVectorDatabase",
+    "CosmosDBVectorDatabase",
     "MilvusVectorDatabase",
     "MongoDBVectorDatabase",
     "OpenSearchVectorDatabase",
     "PineconeVectorDatabase",
-    "CosmosDBVectorDatabase",
+    "QdrantVectorDatabase",
     "VertexDBVectorDatabase",
 ]

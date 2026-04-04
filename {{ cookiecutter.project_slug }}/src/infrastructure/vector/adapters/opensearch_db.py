@@ -3,11 +3,16 @@ from typing import Any, Optional
 
 from opensearchpy import OpenSearch
 
-from ....domain.vector import VectorDBConfig
+from ....domain.vector import (
+    CollectionConfig,
+    VectorDBConfig,
+    VectorDBProvider,
+)
 from ...utils import resolve_parameters
 from ..base import BaseVectorDatabase
+from ..factory import VectorDBFactory
 
-OPENSEARCH_ALLOWED_KEYS = {
+OPENSEARCH_ALLOWED_KEYS: set[str] = {
     "hosts",
     "basic_auth",
     "verify_certs",
@@ -16,22 +21,18 @@ OPENSEARCH_ALLOWED_KEYS = {
 }
 
 
+@VectorDBFactory.register(VectorDBProvider.OPENSEARCH)
 class OpenSearchVectorDatabase(BaseVectorDatabase):
     """Wrapper for OpenSearch vector database client.
 
-    OpenSearch is an open-source fork of Elasticsearch with native vector
-    search capabilities. This adapter manages connections to OpenSearch
-    clusters.
-
     Configuration parameters:
-        - host: OpenSearch server hostname (e.g., "localhost")
-        - port: OpenSearch server port (default: 9200)
-        - https: Enable HTTPS for connections (default: False)
-        - username: Username for basic authentication
-        - password: Password for basic authentication
-        - verify_certs: Verify SSL certificates (default: True)
-        - timeout: Connection timeout in seconds
-        - url: Full OpenSearch connection URL (alternative to host:port)
+        - host: OpenSearch server hostname.
+        - port: Server port (default: 9200).
+        - https: Enable HTTPS for connections.
+        - username / password: Basic authentication credentials.
+        - verify_certs: Verify SSL certificates (default: True).
+        - timeout: Connection timeout in seconds.
+        - url: Full connection URL (alternative to host:port).
     """
 
     def __init__(
@@ -66,26 +67,22 @@ class OpenSearchVectorDatabase(BaseVectorDatabase):
 
         config_fields = resolve_parameters(
             config,
-            allowed_keys={"url", "host", "port", "https", "username", "password"},
+            allowed_keys={
+                "url", "host", "port",
+                "https", "username", "password",
+            },
         )
 
-        config_url = config_fields.get("url")
-        config_host = config_fields.get("host")
-        config_port = config_fields.get("port")
-        config_https = config_fields.get("https")
-        config_username = config_fields.get("username")
-        config_password = config_fields.get("password")
-
-        cfg_url = url or config_url
-        cfg_host = host or config_host
-        cfg_port = port or config_port or 9200
+        cfg_url = url or config_fields.get("url")
+        cfg_host = host or config_fields.get("host")
+        cfg_port = port or config_fields.get("port") or 9200
         cfg_https = (
             https
             if https is not None
-            else config_https
+            else config_fields.get("https")
         )
-        cfg_username = username or config_username
-        cfg_password = password or config_password
+        cfg_username = username or config_fields.get("username")
+        cfg_password = password or config_fields.get("password")
 
         if cfg_url:
             resolved_hosts: list[Any] = [cfg_url]
@@ -115,16 +112,20 @@ class OpenSearchVectorDatabase(BaseVectorDatabase):
 
         self.client = OpenSearch(**params)
 
+    # -- Connection --------------------------------------------------
+
     def connect(self) -> None:
         """Establish connection to OpenSearch.
 
-        The OpenSearch client constructor establishes the connection.
-        This method validates the connection.
+        Raises:
+            ConnectionError: If connection cannot be established.
         """
         try:
             self.client.info()
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to OpenSearch: {e}")
+            raise ConnectionError(
+                f"Failed to connect to OpenSearch: {e}"
+            )
 
     def disconnect(self) -> None:
         """Close the OpenSearch connection."""
@@ -138,7 +139,95 @@ class OpenSearchVectorDatabase(BaseVectorDatabase):
             True if database is accessible, False otherwise.
         """
         try:
-            return self.client.cluster.health(timeout="5s") is not None
+            return (
+                self.client.cluster.health(timeout="5s")
+                is not None
+            )
         except Exception:
             return False
+
+    # -- Collection CRUD ---------------------------------------------
+
+    def create_collection(self, config: CollectionConfig) -> None:
+        """Create an OpenSearch index with knn vector settings.
+
+        Args:
+            config: Collection configuration. Pass additional
+                ``mappings`` and ``settings`` via ``config.kwargs``.
+
+        Raises:
+            RuntimeError: If creation fails.
+        """
+        extra: dict[str, Any] = dict(config.kwargs)
+        body: dict[str, Any] = extra.pop("body", {})
+
+        if config.dimension is not None and "mappings" not in body:
+            space_type = config.metric or "cosinesimil"
+            body.setdefault("settings", {}).setdefault(
+                "index", {}
+            )["knn"] = True
+            body["mappings"] = {
+                "properties": {
+                    "vector": {
+                        "type": "knn_vector",
+                        "dimension": config.dimension,
+                        "method": {
+                            "name": "hnsw",
+                            "space_type": space_type,
+                            "engine": "nmslib",
+                        },
+                    }
+                }
+            }
+
+        try:
+            self.client.indices.create(
+                index=config.name,
+                body=body,
+                **extra,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to create OpenSearch index "
+                f"'{config.name}': {exc}"
+            ) from exc
+
+    def delete_collection(self, name: str) -> None:
+        """Delete an OpenSearch index.
+
+        Args:
+            name: Index name.
+
+        Raises:
+            RuntimeError: If deletion fails.
+        """
+        try:
+            self.client.indices.delete(index=name)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to delete OpenSearch index "
+                f"'{name}': {exc}"
+            ) from exc
+
+    def list_collections(self) -> list[str]:
+        """Return sorted names of all OpenSearch indexes.
+
+        Returns:
+            Sorted list of index names.
+        """
+        aliases: dict[str, Any] = self.client.indices.get_alias(
+            index="*"
+        )
+        return sorted(aliases.keys())
+
+    def has_collection(self, name: str) -> bool:
+        """Check whether an OpenSearch index exists.
+
+        Args:
+            name: Index name.
+
+        Returns:
+            True if the index exists, False otherwise.
+        """
+        return bool(self.client.indices.exists(index=name))
 {%- endif -%}
