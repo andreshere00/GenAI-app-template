@@ -49,7 +49,7 @@ class AzureOpenAIEmbeddingModel(BaseEmbedding):
             model=model,
             api_key=api_key,
             azure_endpoint=azure_endpoint,
-            api_version=api_version,
+            openai_api_version=api_version,
             **kwargs,
         )
 

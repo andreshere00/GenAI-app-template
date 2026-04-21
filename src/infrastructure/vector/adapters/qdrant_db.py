@@ -1,4 +1,5 @@
 from typing import Any, Optional
+from uuid import UUID
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
@@ -130,9 +131,30 @@ class QdrantVectorDatabase(BaseVectorDatabase):
             True if database is accessible, False otherwise.
         """
         try:
-            return self.client.http_client is not None
+            self.client.get_collections()
+            return True
         except Exception:
             return False
+
+    @staticmethod
+    def _coerce_point_id(point_id: str) -> int | UUID:
+        """Coerce string IDs into Qdrant-supported point ID types.
+
+        Qdrant point IDs must be either an unsigned 64-bit integer or a UUID.
+        """
+        if point_id.isdigit():
+            value = int(point_id)
+            if value < 0 or value > 2**64 - 1:
+                raise ValueError(
+                    "Qdrant numeric point IDs must fit in unsigned 64-bit range."
+                )
+            return value
+        try:
+            return UUID(point_id)
+        except ValueError as exc:
+            raise ValueError(
+                "Qdrant point IDs must be a UUID string or a numeric string."
+            ) from exc
 
     # -- Collection CRUD ---------------------------------------------
 
@@ -215,7 +237,7 @@ class QdrantVectorDatabase(BaseVectorDatabase):
         """Insert or update vector records in a Qdrant collection."""
         points = [
             PointStruct(
-                id=record.id,
+                id=self._coerce_point_id(record.id),
                 vector=record.vector,
                 payload=record.payload,
             )
@@ -259,6 +281,8 @@ class QdrantVectorDatabase(BaseVectorDatabase):
         """Delete records by IDs from a Qdrant collection."""
         self.client.delete(
             collection_name=collection_name,
-            points_selector=PointIdsList(points=ids),
+            points_selector=PointIdsList(
+                points=[self._coerce_point_id(i) for i in ids]
+            ),
             **kwargs,
         )

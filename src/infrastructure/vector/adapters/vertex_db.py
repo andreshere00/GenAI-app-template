@@ -1,6 +1,9 @@
 from typing import Any, Optional
 
 from google.cloud import aiplatform
+from google.cloud.aiplatform.compat.types import (
+    matching_engine_index as gca_matching_engine_index,
+ )
 
 from ....domain.vector import (
     VERTEX_PARAM_MAP,
@@ -18,6 +21,8 @@ VERTEX_ALLOWED_KEYS: set[str] = {
     "project_id",
     "region",
     "index_name",
+    "index_endpoint_name",
+    "deployed_index_id",
     "credentials",
     "api_key",
     "timeout",
@@ -32,6 +37,8 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         - project_id: Google Cloud Project ID (required).
         - region: GCP region (default: "us-central1").
         - index_name: Name of the vector search index.
+        - index_endpoint_name: Matching Engine index endpoint resource name or ID.
+        - deployed_index_id: ID of the deployed index on the endpoint.
         - credentials: Path to service account JSON key.
         - api_key: Google Cloud API key (alternative to credentials).
         - timeout: Request timeout in seconds.
@@ -44,6 +51,8 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         project_id: Optional[str] = None,
         region: Optional[str] = None,
         index_name: Optional[str] = None,
+        index_endpoint_name: Optional[str] = None,
+        deployed_index_id: Optional[str] = None,
         credentials: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -56,6 +65,8 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             project_id: Google Cloud Project ID.
             region: GCP region for the service.
             index_name: Name of the vector search index.
+            index_endpoint_name: Index endpoint resource name or ID.
+            deployed_index_id: Deployed index ID within the endpoint.
             credentials: Path to service account credentials.
             api_key: Google API key for authentication.
             timeout: Request timeout in seconds.
@@ -79,13 +90,20 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         self.project_id: Optional[str] = params.get("project_id")
         self.region: str = params.get("region") or "us-central1"
         self.index_name: Optional[str] = params.get("index_name")
+        self.index_endpoint_name: Optional[str] = params.get(
+            "index_endpoint_name"
+        )
+        self.deployed_index_id: Optional[str] = params.get(
+            "deployed_index_id"
+        )
         self.credentials: Optional[str] = params.get(
             "credentials"
         )
         self.api_key: Optional[str] = params.get("api_key")
         self.timeout: Optional[int] = params.get("timeout")
         self._initialized: bool = False
-        self._memory_store: dict[str, dict[str, VectorRecord]] = {}
+        self._index: Optional[aiplatform.MatchingEngineIndex] = None
+        self._endpoint: Optional[aiplatform.MatchingEngineIndexEndpoint] = None
 
     def _init_client_context(self) -> None:
         """Initialize the Vertex AI SDK context."""
@@ -114,12 +132,18 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             if not self._initialized:
                 self._init_client_context()
             if self.index_name:
-                index = aiplatform.MatchingEngineIndex(
+                self._index = aiplatform.MatchingEngineIndex(
                     index_name=self.index_name,
                     project=self.project_id,
                     location=self.region,
                 )
-                self.client = index
+            if self.index_endpoint_name:
+                self._endpoint = aiplatform.MatchingEngineIndexEndpoint(
+                    index_endpoint_name=self.index_endpoint_name,
+                    project=self.project_id,
+                    location=self.region,
+                )
+            self.client = self._index or self._endpoint
         except Exception as e:
             raise ConnectionError(
                 f"Failed to connect to Vertex AI index "
@@ -141,14 +165,19 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         try:
             if not self._initialized:
                 self._init_client_context()
-            if self.index_name:
-                index = aiplatform.MatchingEngineIndex(
+            if self.index_name and self._index is None:
+                self._index = aiplatform.MatchingEngineIndex(
                     index_name=self.index_name,
                     project=self.project_id,
                     location=self.region,
                 )
-                return index is not None
-            return True
+            if self.index_endpoint_name and self._endpoint is None:
+                self._endpoint = aiplatform.MatchingEngineIndexEndpoint(
+                    index_endpoint_name=self.index_endpoint_name,
+                    project=self.project_id,
+                    location=self.region,
+                )
+            return bool(self._index or self._endpoint)
         except Exception:
             return False
 
@@ -177,7 +206,6 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
                 location=self.region,
                 **extra,
             )
-            self._memory_store.setdefault(config.name, {})
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to create Vertex AI index "
@@ -203,7 +231,6 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             for idx in indexes:
                 if idx.display_name == name:
                     idx.delete()
-                    self._memory_store.pop(name, None)
                     return
             raise RuntimeError(
                 f"Vertex AI index '{name}' not found."
@@ -228,9 +255,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             project=self.project_id,
             location=self.region,
         )
-        names = {idx.display_name for idx in indexes}
-        names.update(self._memory_store.keys())
-        return sorted(names)
+        return sorted({idx.display_name for idx in indexes})
 
     def has_collection(self, name: str) -> bool:
         """Check whether a Vertex AI index exists.
@@ -251,10 +276,28 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         records: list[VectorRecord],
         **kwargs: Any,
     ) -> None:
-        """Insert or update vector records in a local Vertex AI cache."""
-        collection = self._memory_store.setdefault(collection_name, {})
-        for record in records:
-            collection[record.id] = record
+        """Upsert datapoints into a Matching Engine index.
+
+        Note: Vertex Matching Engine does not store arbitrary payload
+        metadata alongside datapoints in the same way as other vector
+        databases. This adapter upserts only the datapoint ID and
+        feature vector.
+        """
+        if not self._initialized:
+            self._init_client_context()
+        if self._index is None:
+            raise RuntimeError(
+                "Vertex AI index client is not initialized. "
+                "Provide 'index_name' and call connect()."
+            )
+        datapoints = [
+            gca_matching_engine_index.IndexDatapoint(
+                datapoint_id=record.id,
+                feature_vector=record.vector,
+            )
+            for record in records
+        ]
+        self._index.upsert_datapoints(datapoints=datapoints, **kwargs)
 
     def search(
         self,
@@ -263,19 +306,35 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         limit: int = 5,
         **kwargs: Any,
     ) -> list[VectorSearchResult]:
-        """Run vector similarity search against the local Vertex cache."""
-        records = list(self._memory_store.get(collection_name, {}).values())
-        scored = []
-        for record in records:
-            score = self._cosine_similarity(query_vector, record.vector)
-            scored.append(
+        """Run nearest-neighbor search via Matching Engine index endpoint."""
+        if not self._initialized:
+            self._init_client_context()
+        if self._endpoint is None:
+            raise RuntimeError(
+                "Vertex AI index endpoint client is not initialized. "
+                "Provide 'index_endpoint_name' and call connect()."
+            )
+        if not self.deployed_index_id:
+            raise RuntimeError(
+                "Missing 'deployed_index_id' for Vertex AI neighbor search."
+            )
+        neighbors = self._endpoint.find_neighbors(
+            deployed_index_id=self.deployed_index_id,
+            queries=[query_vector],
+            num_neighbors=limit,
+            **kwargs,
+        )
+        first = neighbors[0] if neighbors else []
+        results: list[VectorSearchResult] = []
+        for n in first:
+            results.append(
                 VectorSearchResult(
-                    id=record.id,
-                    score=score,
-                    payload=dict(record.payload),
+                    id=str(getattr(n, "id", "")),
+                    score=float(getattr(n, "distance", 0.0) or 0.0),
+                    payload={},
                 )
             )
-        return sorted(scored, key=lambda hit: hit.score, reverse=True)[:limit]
+        return results
 
     def delete(
         self,
@@ -283,19 +342,12 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         ids: list[str],
         **kwargs: Any,
     ) -> None:
-        """Delete records by IDs from the local Vertex cache."""
-        collection = self._memory_store.setdefault(collection_name, {})
-        for record_id in ids:
-            collection.pop(record_id, None)
-
-    @staticmethod
-    def _cosine_similarity(first: list[float], second: list[float]) -> float:
-        """Compute cosine similarity between two vectors."""
-        if len(first) != len(second) or not first:
-            return 0.0
-        dot = sum(a * b for a, b in zip(first, second))
-        norm_first = sum(a * a for a in first) ** 0.5
-        norm_second = sum(b * b for b in second) ** 0.5
-        if norm_first == 0.0 or norm_second == 0.0:
-            return 0.0
-        return dot / (norm_first * norm_second)
+        """Remove datapoints from a Matching Engine index."""
+        if not self._initialized:
+            self._init_client_context()
+        if self._index is None:
+            raise RuntimeError(
+                "Vertex AI index client is not initialized. "
+                "Provide 'index_name' and call connect()."
+            )
+        self._index.remove_datapoints(datapoint_ids=ids, **kwargs)

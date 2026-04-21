@@ -5,7 +5,7 @@
 AZURE_OPENAI_EMBEDDING_PARAM_MAP: dict[str, str] = {
     "base_url": "azure_endpoint",
     "model": "azure_deployment",
-    "api_version": "api_version",
+    "api_version": "openai_api_version",
     "api_key": "api_key",
 }
 

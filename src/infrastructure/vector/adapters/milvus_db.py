@@ -5,6 +5,7 @@ from pymilvus import MilvusClient
 from ....domain.vector import (
     MILVUS_PARAM_MAP,
     CollectionConfig,
+    DistanceMetric,
     VectorRecord,
     VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
@@ -19,6 +20,12 @@ MILVUS_ALLOWED_KEYS: set[str] = {
     "token",
     "db_name",
     "timeout",
+}
+
+_METRIC_MAP: dict[DistanceMetric, str] = {
+    DistanceMetric.COSINE: "COSINE",
+    DistanceMetric.EUCLIDEAN: "L2",
+    DistanceMetric.DOT_PRODUCT: "IP",
 }
 
 
@@ -140,7 +147,9 @@ class MilvusVectorDatabase(BaseVectorDatabase):
         if config.dimension is not None:
             params["dimension"] = config.dimension
         if config.metric is not None:
-            params["metric_type"] = config.metric.upper()
+            params["metric_type"] = _METRIC_MAP.get(
+                config.metric, "COSINE"
+            )
         params.update(config.kwargs)
         try:
             self.client.create_collection(**params)

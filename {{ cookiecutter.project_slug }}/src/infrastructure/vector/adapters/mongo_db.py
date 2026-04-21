@@ -2,10 +2,12 @@
 from typing import Any, Optional
 
 from pymongo import MongoClient
+from pymongo.operations import SearchIndexModel
 
 from ....domain.vector import (
     MONGO_PARAM_MAP,
     CollectionConfig,
+    DistanceMetric,
     VectorRecord,
     VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
@@ -167,9 +169,51 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
         Raises:
             RuntimeError: If creation fails.
         """
+        metric_map: dict[DistanceMetric, str] = {
+            DistanceMetric.COSINE: "cosine",
+            DistanceMetric.EUCLIDEAN: "euclidean",
+            DistanceMetric.DOT_PRODUCT: "dotProduct",
+        }
         try:
             db = self._get_database()
             db.create_collection(config.name, **config.kwargs)
+            create_vector_index = bool(
+                config.kwargs.get("create_vector_index", False)
+            )
+            if create_vector_index:
+                if config.dimension is None:
+                    raise RuntimeError(
+                        "MongoDB vector index creation requires "
+                        "CollectionConfig.dimension."
+                    )
+                collection = db[config.name]
+                index_name = config.kwargs.get(
+                    "vector_index_name", "vector_index"
+                )
+                path = config.kwargs.get("vector_path", "vector")
+                similarity = metric_map.get(
+                    config.metric or DistanceMetric.COSINE, "cosine"
+                )
+                model = SearchIndexModel(
+                    definition={
+                        "fields": [
+                            {
+                                "type": "vector",
+                                "numDimensions": config.dimension,
+                                "path": path,
+                                "similarity": similarity,
+                            }
+                        ]
+                    },
+                    name=index_name,
+                    type="vectorSearch",
+                )
+                if not hasattr(collection, "create_search_index"):
+                    raise RuntimeError(
+                        "This PyMongo version does not support Atlas "
+                        "Search/Vector Search index management."
+                    )
+                collection.create_search_index(model=model)
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to create MongoDB collection "

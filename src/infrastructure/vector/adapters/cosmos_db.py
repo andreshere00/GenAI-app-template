@@ -213,6 +213,15 @@ class CosmosDBVectorDatabase(BaseVectorDatabase):
             return 0.0
         return dot / (norm_first * norm_second)
 
+    @staticmethod
+    def _validate_field_name(field_name: str) -> str:
+        """Validate a Cosmos SQL property name used in vector search queries."""
+        if not field_name or not field_name.replace("_", "").isalnum():
+            raise ValueError(
+                "Invalid vector field name. Use only letters, digits, and underscores."
+            )
+        return field_name
+
     # -- Vector CRUD ---------------------------------------------
 
     def upsert(
@@ -239,18 +248,54 @@ class CosmosDBVectorDatabase(BaseVectorDatabase):
         limit: int = 5,
         **kwargs: Any,
     ) -> list[VectorSearchResult]:
-        """Run vector search in Cosmos DB via client-side ranking."""
+        """Run vector search in Cosmos DB using VectorDistance().
+
+        This requires Cosmos DB for NoSQL vector search to be enabled and a
+        vector index policy configured on the container.
+        """
         db = self._get_database()
         container = db.get_container_client(collection_name)
-        query = kwargs.pop("query", "SELECT * FROM c")
+        vector_field = self._validate_field_name(
+            kwargs.pop("vector_field", "vector")
+        )
+        enable_fallback = bool(
+            kwargs.pop("fallback_client_side", False)
+        )
+
+        query = (
+            f"SELECT TOP {limit} c.id, c.payload, "
+            f"VectorDistance(c.{vector_field}, @embedding) AS score "
+            f"FROM c ORDER BY VectorDistance(c.{vector_field}, @embedding)"
+        )
+        try:
+            items = container.query_items(
+                query=query,
+                parameters=[
+                    {"name": "@embedding", "value": query_vector}
+                ],
+                enable_cross_partition_query=True,
+                **kwargs,
+            )
+            return [
+                VectorSearchResult(
+                    id=str(item.get("id", "")),
+                    score=float(item.get("score", 0.0)),
+                    payload=dict(item.get("payload", {}) or {}),
+                )
+                for item in items
+            ]
+        except Exception:
+            if not enable_fallback:
+                raise
+
         items = container.query_items(
-            query=query,
+            query="SELECT c.id, c.payload, c.vector FROM c",
             enable_cross_partition_query=True,
             **kwargs,
         )
-        scored = []
+        scored: list[VectorSearchResult] = []
         for item in items:
-            vector = item.get("vector", [])
+            vector = item.get(vector_field, item.get("vector", []))
             score = self._cosine_similarity(query_vector, vector)
             scored.append(
                 VectorSearchResult(
