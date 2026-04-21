@@ -34,6 +34,26 @@ class ConcreteVectorDatabase(BaseVectorDatabase):
     def has_collection(self, name: str) -> bool:
         return name in self._collections
 
+    def upsert(self, collection_name: str, records: list[Any], **kwargs: Any) -> None:
+        store = self._collections.setdefault(collection_name, {})
+        for record in records:
+            store[record.id] = record
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[Any]:
+        records = list(self._collections.get(collection_name, {}).values())
+        return records[:limit]
+
+    def delete(self, collection_name: str, ids: list[str], **kwargs: Any) -> None:
+        store = self._collections.setdefault(collection_name, {})
+        for record_id in ids:
+            store.pop(record_id, None)
+
 
 class TestBaseVectorDatabase:
     def test_cannot_instantiate_abstract_class(self):

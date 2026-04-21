@@ -1,4 +1,5 @@
 {%- if "1" in cookiecutter.vector_db -%}
+import math
 from typing import Any, Optional
 
 from azure.cosmos import CosmosClient
@@ -6,6 +7,8 @@ from azure.cosmos import CosmosClient
 from ....domain.vector import (
     COSMOS_PARAM_MAP,
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -198,4 +201,79 @@ class CosmosDBVectorDatabase(BaseVectorDatabase):
             True if the container exists, False otherwise.
         """
         return name in self.list_collections()
+
+    @staticmethod
+    def _cosine_similarity(first: list[float], second: list[float]) -> float:
+        """Compute cosine similarity between two vectors."""
+        if len(first) != len(second) or not first:
+            return 0.0
+        dot = sum(a * b for a, b in zip(first, second))
+        norm_first = math.sqrt(sum(a * a for a in first))
+        norm_second = math.sqrt(sum(b * b for b in second))
+        if norm_first == 0.0 or norm_second == 0.0:
+            return 0.0
+        return dot / (norm_first * norm_second)
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a Cosmos DB container."""
+        db = self._get_database()
+        container = db.get_container_client(collection_name)
+        for record in records:
+            item = {
+                "id": record.id,
+                "vector": record.vector,
+                "payload": record.payload,
+            }
+            container.upsert_item(item, **kwargs)
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run vector search in Cosmos DB via client-side ranking."""
+        db = self._get_database()
+        container = db.get_container_client(collection_name)
+        query = kwargs.pop("query", "SELECT * FROM c")
+        items = container.query_items(
+            query=query,
+            enable_cross_partition_query=True,
+            **kwargs,
+        )
+        scored = []
+        for item in items:
+            vector = item.get("vector", [])
+            score = self._cosine_similarity(query_vector, vector)
+            scored.append(
+                VectorSearchResult(
+                    id=str(item.get("id", "")),
+                    score=score,
+                    payload=dict(item.get("payload", {}) or {}),
+                )
+            )
+        return sorted(scored, key=lambda hit: hit.score, reverse=True)[:limit]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from a Cosmos DB container."""
+        db = self._get_database()
+        container = db.get_container_client(collection_name)
+        partition_key_field = kwargs.pop("partition_key_field", "id")
+        for record_id in ids:
+            partition_key = kwargs.get("partition_key", record_id)
+            container.delete_item(
+                item={partition_key_field: record_id, "id": record_id},
+                partition_key=partition_key,
+            )
 {%- endif -%}

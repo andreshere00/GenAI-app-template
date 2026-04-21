@@ -5,6 +5,8 @@ from pinecone import Pinecone, ServerlessSpec
 
 from ....domain.vector import (
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -177,4 +179,69 @@ class PineconeVectorDatabase(BaseVectorDatabase):
             True if the index exists, False otherwise.
         """
         return name in self.list_collections()
+
+    def _get_index(self, collection_name: str) -> Any:
+        """Return an index client for the given collection name."""
+        idx_kwargs: dict[str, Any] = {}
+        if self.host:
+            idx_kwargs["host"] = self.host
+        return self.client.Index(collection_name, **idx_kwargs)
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a Pinecone index."""
+        vectors = [
+            (
+                record.id,
+                record.vector,
+                record.payload,
+            )
+            for record in records
+        ]
+        index = self._get_index(collection_name)
+        index.upsert(vectors=vectors, **kwargs)
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run similarity search against a Pinecone index."""
+        index = self._get_index(collection_name)
+        response = index.query(
+            vector=query_vector,
+            top_k=limit,
+            include_metadata=True,
+            **kwargs,
+        )
+        matches = getattr(response, "matches", None)
+        if matches is None and isinstance(response, dict):
+            matches = response.get("matches", [])
+        matches = matches or []
+        return [
+            VectorSearchResult(
+                id=str(getattr(match, "id", match.get("id", ""))),
+                score=float(getattr(match, "score", match.get("score", 0.0))),
+                payload=dict(
+                    getattr(match, "metadata", match.get("metadata", {})) or {}
+                ),
+            )
+            for match in matches
+        ]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from a Pinecone index."""
+        index = self._get_index(collection_name)
+        index.delete(ids=ids, **kwargs)
 {%- endif -%}

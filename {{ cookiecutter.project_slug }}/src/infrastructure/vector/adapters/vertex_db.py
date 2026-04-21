@@ -6,6 +6,8 @@ from google.cloud import aiplatform
 from ....domain.vector import (
     VERTEX_PARAM_MAP,
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -84,6 +86,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         self.api_key: Optional[str] = params.get("api_key")
         self.timeout: Optional[int] = params.get("timeout")
         self._initialized: bool = False
+        self._memory_store: dict[str, dict[str, VectorRecord]] = {}
 
     def _init_client_context(self) -> None:
         """Initialize the Vertex AI SDK context."""
@@ -175,6 +178,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
                 location=self.region,
                 **extra,
             )
+            self._memory_store.setdefault(config.name, {})
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to create Vertex AI index "
@@ -200,6 +204,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             for idx in indexes:
                 if idx.display_name == name:
                     idx.delete()
+                    self._memory_store.pop(name, None)
                     return
             raise RuntimeError(
                 f"Vertex AI index '{name}' not found."
@@ -224,7 +229,9 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             project=self.project_id,
             location=self.region,
         )
-        return sorted(idx.display_name for idx in indexes)
+        names = {idx.display_name for idx in indexes}
+        names.update(self._memory_store.keys())
+        return sorted(names)
 
     def has_collection(self, name: str) -> bool:
         """Check whether a Vertex AI index exists.
@@ -236,4 +243,59 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
             True if the index exists, False otherwise.
         """
         return name in self.list_collections()
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a local Vertex AI cache."""
+        collection = self._memory_store.setdefault(collection_name, {})
+        for record in records:
+            collection[record.id] = record
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run vector similarity search against the local Vertex cache."""
+        records = list(self._memory_store.get(collection_name, {}).values())
+        scored = []
+        for record in records:
+            score = self._cosine_similarity(query_vector, record.vector)
+            scored.append(
+                VectorSearchResult(
+                    id=record.id,
+                    score=score,
+                    payload=dict(record.payload),
+                )
+            )
+        return sorted(scored, key=lambda hit: hit.score, reverse=True)[:limit]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from the local Vertex cache."""
+        collection = self._memory_store.setdefault(collection_name, {})
+        for record_id in ids:
+            collection.pop(record_id, None)
+
+    @staticmethod
+    def _cosine_similarity(first: list[float], second: list[float]) -> float:
+        """Compute cosine similarity between two vectors."""
+        if len(first) != len(second) or not first:
+            return 0.0
+        dot = sum(a * b for a, b in zip(first, second))
+        norm_first = sum(a * a for a in first) ** 0.5
+        norm_second = sum(b * b for b in second) ** 0.5
+        if norm_first == 0.0 or norm_second == 0.0:
+            return 0.0
+        return dot / (norm_first * norm_second)
 {%- endif -%}

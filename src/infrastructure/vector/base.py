@@ -5,7 +5,12 @@ from typing import Any, Optional
 
 from typing_extensions import Self
 
-from ...domain.vector import CollectionConfig, VectorDBConfig
+from ...domain.vector import (
+    CollectionConfig,
+    VectorDBConfig,
+    VectorRecord,
+    VectorSearchResult,
+)
 
 
 class BaseVectorDatabase(ABC):
@@ -118,4 +123,56 @@ class BaseVectorDatabase(ABC):
 
         Returns:
             True if the collection exists, False otherwise.
+        """
+
+     # -- Vector CRUD ---------------------------------------------
+
+    @abstractmethod
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a collection.
+
+        Args:
+            collection_name: Target collection/index name.
+            records: Records containing id, vector and payload.
+            **kwargs: Provider-specific write options.
+        """
+
+    @abstractmethod
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run a vector similarity search.
+
+        Args:
+            collection_name: Target collection/index name.
+            query_vector: Query embedding vector.
+            limit: Maximum number of hits to return.
+            **kwargs: Provider-specific search options.
+
+        Returns:
+            Ranked list of search results.
+        """
+
+    @abstractmethod
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete vector records by IDs.
+
+        Args:
+            collection_name: Target collection/index name.
+            ids: Record identifiers to delete.
+            **kwargs: Provider-specific delete options.
         """

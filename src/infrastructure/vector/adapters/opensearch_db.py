@@ -4,6 +4,8 @@ from opensearchpy import OpenSearch
 
 from ....domain.vector import (
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -229,3 +231,78 @@ class OpenSearchVectorDatabase(BaseVectorDatabase):
             True if the index exists, False otherwise.
         """
         return bool(self.client.indices.exists(index=name))
+
+    # -- Vector CRUD ---------------------------------------------
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in an OpenSearch index."""
+        refresh = kwargs.pop("refresh", True)
+        for record in records:
+            self.client.index(
+                index=collection_name,
+                id=record.id,
+                body={
+                    "vector": record.vector,
+                    "payload": record.payload,
+                },
+                refresh=refresh,
+                **kwargs,
+            )
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run similarity search against an OpenSearch index."""
+        body = kwargs.pop(
+            "body",
+            {
+                "size": limit,
+                "query": {
+                    "knn": {
+                        "vector": {
+                            "vector": query_vector,
+                            "k": limit,
+                        }
+                    }
+                },
+            },
+        )
+        response = self.client.search(
+            index=collection_name,
+            body=body,
+            **kwargs,
+        )
+        hits = response.get("hits", {}).get("hits", [])
+        return [
+            VectorSearchResult(
+                id=str(hit.get("_id", "")),
+                score=float(hit.get("_score", 0.0)),
+                payload=dict(hit.get("_source", {}).get("payload", {}) or {}),
+            )
+            for hit in hits
+        ]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from an OpenSearch index."""
+        refresh = kwargs.pop("refresh", True)
+        for record_id in ids:
+            self.client.delete(
+                index=collection_name,
+                id=record_id,
+                refresh=refresh,
+                **kwargs,
+            )

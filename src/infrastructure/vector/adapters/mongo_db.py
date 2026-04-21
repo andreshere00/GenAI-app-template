@@ -5,6 +5,8 @@ from pymongo import MongoClient
 from ....domain.vector import (
     MONGO_PARAM_MAP,
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -210,3 +212,82 @@ class MongoDBVectorDatabase(BaseVectorDatabase):
             True if the collection exists, False otherwise.
         """
         return name in self.list_collections()
+
+    # -- Vector CRUD ---------------------------------------------
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a MongoDB collection."""
+        db = self._get_database()
+        collection = db[collection_name]
+        for record in records:
+            payload = dict(record.payload)
+            document = {
+                "_id": record.id,
+                "vector": record.vector,
+                "payload": payload,
+            }
+            collection.replace_one(
+                {"_id": record.id},
+                document,
+                upsert=True,
+                **kwargs,
+            )
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run vector similarity search in MongoDB Atlas."""
+        db = self._get_database()
+        collection = db[collection_name]
+        index_name = kwargs.pop("index_name", "vector_index")
+        path = kwargs.pop("path", "vector")
+        num_candidates = kwargs.pop("num_candidates", max(50, limit * 10))
+
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": index_name,
+                    "path": path,
+                    "queryVector": query_vector,
+                    "numCandidates": num_candidates,
+                    "limit": limit,
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "payload": 1,
+                    "score": {"$meta": "vectorSearchScore"},
+                }
+            },
+        ]
+        pipeline.extend(kwargs.pop("pipeline_tail", []))
+        docs = collection.aggregate(pipeline, **kwargs)
+        return [
+            VectorSearchResult(
+                id=str(doc.get("_id", "")),
+                score=float(doc.get("score", 0.0)),
+                payload=dict(doc.get("payload", {}) or {}),
+            )
+            for doc in docs
+        ]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from a MongoDB collection."""
+        db = self._get_database()
+        collection = db[collection_name]
+        collection.delete_many({"_id": {"$in": ids}}, **kwargs)

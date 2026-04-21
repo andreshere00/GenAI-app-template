@@ -44,6 +44,22 @@ class CollectionConfig(Protocol):
     kwargs: dict[str, Any]
 
 
+class VectorRecord(Protocol):
+    """Protocol for a vector record stored in a collection."""
+
+    id: str
+    vector: list[float]
+    payload: dict[str, Any]
+
+
+class VectorSearchResult(Protocol):
+    """Protocol for a vector search hit."""
+
+    id: str
+    score: float
+    payload: dict[str, Any]
+
+
 class VectorDB(Protocol):
     """Protocol declaring the full interface of a vector database wrapper.
 
@@ -126,6 +142,56 @@ class VectorDB(Protocol):
 
         Returns:
             True if the collection exists, False otherwise.
+        """
+        ...
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a collection.
+
+        Args:
+            collection_name: Target collection/index name.
+            records: Records containing id, vector and payload.
+            **kwargs: Provider-specific write options.
+        """
+        ...
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run a vector similarity search.
+
+        Args:
+            collection_name: Target collection/index name.
+            query_vector: Query embedding vector.
+            limit: Maximum number of hits to return.
+            **kwargs: Provider-specific search options.
+
+        Returns:
+            Ranked list of search results.
+        """
+        ...
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete vector records by IDs.
+
+        Args:
+            collection_name: Target collection/index name.
+            ids: Record identifiers to delete.
+            **kwargs: Provider-specific delete options.
         """
         ...
 {%- endif -%}

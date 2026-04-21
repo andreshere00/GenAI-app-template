@@ -5,6 +5,8 @@ from pymilvus import MilvusClient
 from ....domain.vector import (
     MILVUS_PARAM_MAP,
     CollectionConfig,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -183,3 +185,65 @@ class MilvusVectorDatabase(BaseVectorDatabase):
             True if the collection exists, False otherwise.
         """
         return self.client.has_collection(collection_name=name)
+
+    # -- Vector CRUD ---------------------------------------------
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a Milvus collection."""
+        rows = [
+            {"id": record.id, "vector": record.vector, **record.payload}
+            for record in records
+        ]
+        self.client.upsert(
+            collection_name=collection_name,
+            data=rows,
+            **kwargs,
+        )
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run similarity search against a Milvus collection."""
+        response = self.client.search(
+            collection_name=collection_name,
+            data=[query_vector],
+            limit=limit,
+            **kwargs,
+        )
+        hits = response[0] if response else []
+        results: list[VectorSearchResult] = []
+        for hit in hits:
+            entity = hit.get("entity", {})
+            payload = {k: v for k, v in entity.items() if k not in {"id", "vector"}}
+            identifier = entity.get("id", hit.get("id", ""))
+            score = hit.get("distance", hit.get("score", 0.0))
+            results.append(
+                VectorSearchResult(
+                    id=str(identifier),
+                    score=float(score),
+                    payload=payload,
+                )
+            )
+        return results
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from a Milvus collection."""
+        self.client.delete(
+            collection_name=collection_name,
+            ids=ids,
+            **kwargs,
+        )

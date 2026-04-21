@@ -1,11 +1,19 @@
 {%- if cookiecutter.vector_db -%}
 """Domain models for vector databases."""
 
-from .protocols import CollectionConfig, VectorDB, VectorDBConfig
+from .protocols import (
+    CollectionConfig,
+    VectorDB,
+    VectorDBConfig,
+    VectorRecord,
+    VectorSearchResult,
+)
 from .types import (
     CollectionConfig as CollectionConfigDTO,
     DistanceMetric,
     VectorDBConfig as VectorDBConfigDTO,
+    VectorRecord as VectorRecordDTO,
+    VectorSearchResult as VectorSearchResultDTO,
     VectorDBProvider,
 )
 {% if "1" in cookiecutter.vector_db %}
@@ -34,8 +42,12 @@ __all__: list[str] = [
     "VectorDBConfig",
     "CollectionConfig",
     "VectorDB",
+    "VectorRecord",
+    "VectorSearchResult",
     "VectorDBConfigDTO",
     "CollectionConfigDTO",
+    "VectorRecordDTO",
+    "VectorSearchResultDTO",
     "VectorDBProvider",
     "DistanceMetric",
     {%- if "1" in cookiecutter.vector_db %}

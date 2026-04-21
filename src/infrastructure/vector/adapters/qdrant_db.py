@@ -1,11 +1,13 @@
 from typing import Any, Optional
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
 
 from ....domain.vector import (
     CollectionConfig,
     DistanceMetric,
+    VectorRecord,
+    VectorSearchResultDTO as VectorSearchResult,
     VectorDBConfig,
     VectorDBProvider,
 )
@@ -200,4 +202,63 @@ class QdrantVectorDatabase(BaseVectorDatabase):
         """
         return self.client.collection_exists(
             collection_name=name
+        )
+
+    # -- Vector CRUD ---------------------------------------------
+
+    def upsert(
+        self,
+        collection_name: str,
+        records: list[VectorRecord],
+        **kwargs: Any,
+    ) -> None:
+        """Insert or update vector records in a Qdrant collection."""
+        points = [
+            PointStruct(
+                id=record.id,
+                vector=record.vector,
+                payload=record.payload,
+            )
+            for record in records
+        ]
+        self.client.upsert(
+            collection_name=collection_name,
+            points=points,
+            **kwargs,
+        )
+
+    def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> list[VectorSearchResult]:
+        """Run similarity search against a Qdrant collection."""
+        response = self.client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            **kwargs,
+        )
+        return [
+            VectorSearchResult(
+                id=str(point.id),
+                score=float(point.score),
+                payload=dict(point.payload or {}),
+            )
+            for point in response
+        ]
+
+    def delete(
+        self,
+        collection_name: str,
+        ids: list[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete records by IDs from a Qdrant collection."""
+        self.client.delete(
+            collection_name=collection_name,
+            points_selector=PointIdsList(points=ids),
+            **kwargs,
         )

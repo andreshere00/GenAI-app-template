@@ -19,6 +19,7 @@ dependencies = [
 {% endif %}{% if "5" in cookiecutter.vector_db %}    "pinecone>=8.1.0",
 {% endif %}{% if "6" in cookiecutter.vector_db %}    "qdrant-client>=1.17.0",
 {% endif %}{% if "7" in cookiecutter.vector_db %}    "google-cloud-aiplatform>=1.141.0",
+{% endif %}{% if "rag" in cookiecutter.services %}    "splitter-mr[markitdown]",
 {% endif %}]
 authors = [
     {name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}"}

@@ -82,3 +82,21 @@ class CollectionConfig:
     dimension: Optional[int] = None
     metric: Optional[str] = None
     kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class VectorRecord:
+    """Concrete vector record for storage operations."""
+
+    id: str = ""
+    vector: list[float] = field(default_factory=list)
+    payload: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class VectorSearchResult:
+    """Concrete vector search hit."""
+
+    id: str = ""
+    score: float = 0.0
+    payload: dict[str, Any] = field(default_factory=dict)

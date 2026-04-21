@@ -20,6 +20,7 @@ dependencies = [
     "pymilvus>=2.6.10",
     "pymongo>=4.16.0",
     "qdrant-client>=1.17.0",
+    "splitter-mr[markitdown]",
 ]
 
 [dependency-groups]
