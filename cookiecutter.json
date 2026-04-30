@@ -5,6 +5,8 @@
     "project_version": "0.1.0",
     "author_name": "andreshere00",
     "author_email": "andresherencia2000@gmail.com",
-    "llm_providers": "Select among the available LLM Providers:\n    1. Anthropic\n    2. Azure OpenAI\n    3. Bedrock\n    4. Gemini\n    5. Grok\n    6. Ollama\n    7. OpenAI\n e.g., '1,2,5''",
-    "services": ["none", "chat"]
+    "llm_providers": "Select among the available LLM Providers:\n    1. Anthropic\n    2. Azure OpenAI\n    3. Bedrock\n    4. Gemini\n    5. Grok\n    6. Ollama\n    7. OpenAI\n e.g., '1,2,5'",
+    "services": ["none", "chat", "rag"],
+    "embedding_providers": "Select among the available Embedding Providers:\n    1. Azure OpenAI\n    2. Bedrock\n    3. Cohere\n    4. Gemini\n    5. Grok\n    6. Ollama\n    7. OpenAI\n    8. VoyageAI\n e.g., '1,4,7'",
+    "vector_db": "Select among the available Vector Databases:\n    1. Cosmos DB\n    2. Milvus\n    3. MongoDB\n    4. OpenSearch\n    5. Pinecone\n    6. Qdrant\n    7. Vertex AI\n e.g., '1,3,6'"
 }

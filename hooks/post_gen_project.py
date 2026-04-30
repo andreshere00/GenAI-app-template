@@ -1,7 +1,30 @@
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import List
+
+SERVICE: str = "{{ cookiecutter.services }}"
+
+RAG_ONLY_DIRS: list[str] = [
+    "src/domain/embedding",
+    "src/domain/vector",
+    "src/infrastructure/embedding",
+    "src/infrastructure/vector",
+    "tests/infrastructure/embedding",
+    "tests/infrastructure/vector",
+]
+
+
+def remove_rag_components() -> None:
+    """Remove embedding and vector DB directories when rag is not selected."""
+    if SERVICE == "rag":
+        return
+    print("Service is not 'rag'. Removing embedding and vector DB components...")
+    for dir_path in RAG_ONLY_DIRS:
+        target = Path(dir_path)
+        if target.exists():
+            shutil.rmtree(target)
+
 
 def remove_empty_python_files() -> None:
     """Remove empty .py files (0 bytes or only whitespace) from root."""
@@ -9,6 +32,14 @@ def remove_empty_python_files() -> None:
     for path in Path(".").rglob("*.py"):
         if path.is_file() and not path.read_text().strip():
             path.unlink()
+
+
+def remove_empty_directories() -> None:
+    """Remove empty directories left after Jinja2 conditional rendering."""
+    print("Removing empty directories...")
+    for path in sorted(Path(".").rglob("*"), reverse=True):
+        if path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
 
 def run_uv_command(args: list[str]) -> None:
     """Execute a command using uv run"""
@@ -38,7 +69,9 @@ def format_project_code() -> None:
             print(f"Warning: {' '.join(cmd[:3])} not found. Skipping formatting.")
 
 if __name__ == "__main__":
+    remove_rag_components()
     remove_empty_python_files()
+    remove_empty_directories()
     format_project_code()
     run_template_tests()
     print("Template has been created successfully! :)")
