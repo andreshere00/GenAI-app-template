@@ -1,5 +1,5 @@
 from typing import Any, Optional
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
@@ -141,6 +141,7 @@ class QdrantVectorDatabase(BaseVectorDatabase):
         """Coerce string IDs into Qdrant-supported point ID types.
 
         Qdrant point IDs must be either an unsigned 64-bit integer or a UUID.
+        For plain strings, generate a deterministic UUID5 value.
         """
         if point_id.isdigit():
             value = int(point_id)
@@ -151,10 +152,8 @@ class QdrantVectorDatabase(BaseVectorDatabase):
             return value
         try:
             return UUID(point_id)
-        except ValueError as exc:
-            raise ValueError(
-                "Qdrant point IDs must be a UUID string or a numeric string."
-            ) from exc
+        except ValueError:
+            return uuid5(NAMESPACE_URL, point_id)
 
     # -- Collection CRUD ---------------------------------------------
 

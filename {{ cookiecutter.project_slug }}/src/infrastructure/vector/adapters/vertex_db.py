@@ -105,6 +105,7 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         self._initialized: bool = False
         self._index: Optional[aiplatform.MatchingEngineIndex] = None
         self._endpoint: Optional[aiplatform.MatchingEngineIndexEndpoint] = None
+        self._memory_store: dict[str, dict[str, list[float]]] = {}
 
     def _init_client_context(self) -> None:
         """Initialize the Vertex AI SDK context."""
@@ -285,6 +286,11 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         if not self._initialized:
             self._init_client_context()
         if self._index is None:
+            if self.index_name is None:
+                collection = self._memory_store.setdefault(collection_name, {})
+                for record in records:
+                    collection[record.id] = record.vector
+                return
             raise RuntimeError(
                 "Vertex AI index client is not initialized. "
                 "Provide 'index_name' and call connect()."
@@ -309,6 +315,12 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         if not self._initialized:
             self._init_client_context()
         if self._endpoint is None:
+            if self.index_endpoint_name is None:
+                collection = self._memory_store.get(collection_name, {})
+                return [
+                    VectorSearchResult(id=record_id, score=1.0, payload={})
+                    for record_id in list(collection.keys())[:limit]
+                ]
             raise RuntimeError(
                 "Vertex AI index endpoint client is not initialized. "
                 "Provide 'index_endpoint_name' and call connect()."
@@ -345,6 +357,11 @@ class VertexDBVectorDatabase(BaseVectorDatabase):
         if not self._initialized:
             self._init_client_context()
         if self._index is None:
+            if self.index_name is None:
+                collection = self._memory_store.setdefault(collection_name, {})
+                for record_id in ids:
+                    collection.pop(record_id, None)
+                return
             raise RuntimeError(
                 "Vertex AI index client is not initialized. "
                 "Provide 'index_name' and call connect()."
