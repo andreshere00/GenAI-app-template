@@ -56,6 +56,13 @@ isort = { cmd = "uv run isort .", help = "Sort imports using isort" }
 style = { sequence = ["isort", "format", "lint"], help = "Sort imports, format code, and run linter" }
 clean = { "shell" = "python -c \"import pathlib; [ [p.unlink() if p.is_file() else __import__('shutil').rmtree(p) for p in pathlib.Path('.').rglob(mask)] for mask in ('__pycache__', '*.pyc', '*.pyo', '.pytest_cache', '.coverage') ]\"", help = "Remove python cache files and build artifacts" }
 
+[tool.poe.tasks.install]
+sequence = [
+    { cmd = "uv sync --group dev" },
+    { cmd = "uv run pre-commit install" },
+]
+help = "Install project and dev dependencies, then pre-commit git hooks"
+
 [tool.black]
 line-length = 100
 
